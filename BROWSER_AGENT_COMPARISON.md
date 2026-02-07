@@ -6,19 +6,21 @@
 
 ## TL;DR Recommendation
 
-| If you want...                          | Use                        |
-|-----------------------------------------|----------------------------|
-| Easiest setup + largest community       | **Browser Use**            |
-| Most robust production workflows        | **Skyvern**                |
-| Most reliable on complex JS job portals | **Playwright MCP + Claude**|
+| If you want...                                 | Use                          |
+|------------------------------------------------|------------------------------|
+| Easiest setup + largest community              | **Browser Use**              |
+| Most robust production workflows               | **Skyvern**                  |
+| Most token-efficient + works with any AI agent | **agent-browser (Vercel)**   |
+| Most reliable on complex JS job portals        | **Playwright MCP + Claude**  |
 
 ---
 
-## The Three Best Solutions
+## The Four Best Solutions
 
-### 1. Browser Use
-### 2. Skyvern
-### 3. Playwright MCP (+ LLM orchestration)
+### 1. Browser Use — Largest community, Python-native, batteries-included
+### 2. Skyvern — Vision-first, explore-then-replay, production workflows
+### 3. agent-browser (Vercel Labs) — CLI-first, ultra token-efficient, LLM-agnostic
+### 4. Playwright MCP — Accessibility tree, Microsoft-backed, multi-browser
 
 ---
 
@@ -291,7 +293,173 @@ blocks:
 
 ---
 
-## Solution 3: Playwright MCP + LLM
+## Solution 3: agent-browser (Vercel Labs)
+
+> CLI-first browser control — 93% fewer tokens than alternatives, works with ANY AI agent
+
+| Attribute           | Details                                                   |
+|---------------------|-----------------------------------------------------------|
+| **Repository**      | [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser) |
+| **Stars**           | ~13,100                                                   |
+| **License**         | Apache-2.0 (fully permissive)                             |
+| **Language**        | Rust (CLI) + TypeScript (daemon)                          |
+| **Browser Engine**  | Playwright-core (Chromium)                                |
+| **AI Approach**     | Condensed accessibility snapshot with element refs        |
+| **Setup Complexity**| Low — `npm install -g agent-browser`                      |
+
+### How It Works
+
+```
+AI Agent (Claude Code, Cursor, Codex, any CLI agent)
+    → Executes shell commands: agent-browser open, snapshot, click, fill, etc.
+        → Rust CLI (boots in <50ms)
+            → Node.js Daemon (persistent, manages browser)
+                → Playwright-core → Chromium
+```
+
+agent-browser is fundamentally different from the other solutions. It is **not an AI agent** — it's a **CLI tool designed to be called by AI agents** via shell commands. It contains zero LLM code. The innovation is the **Snapshot + Refs** system:
+
+```bash
+$ agent-browser snapshot -i
+# Output (compact — only interactive elements):
+@e1  textbox "First Name"
+@e2  textbox "Last Name"
+@e3  textbox "Email"
+@e4  combobox "Years of Experience"
+@e5  button "Upload Resume"
+@e6  button "Submit Application"
+
+$ agent-browser fill @e1 "Jane Doe"
+$ agent-browser fill @e3 "jane@email.com"
+$ agent-browser select @e4 "5-10 years"
+$ agent-browser upload @e5 /path/to/resume.pdf
+$ agent-browser click @e6
+```
+
+Instead of dumping a full DOM tree (thousands of tokens) or expensive screenshots, agent-browser produces **short, numbered references** to interactive elements. The AI agent uses these refs directly — `click @e3`, `fill @e1 "text"`. This achieves a claimed **93% reduction in context/token usage** compared to full accessibility tree dumps.
+
+**Critical pattern**: Element refs (`@e1`, `@e2`, etc.) are **invalidated after any page change** (navigation, form submission, dynamic content). The agent must re-snapshot after every page-changing action.
+
+### LLM Support
+
+**agent-browser is completely LLM-agnostic.** It has zero AI dependencies — no LangChain, no OpenAI SDK, nothing. Since it's just a CLI tool invoked via bash, it works with *any* AI agent that can execute shell commands:
+
+| AI Agent / Platform | Works with agent-browser |
+|---------------------|:------------------------:|
+| **Claude Code**     | Yes                      |
+| **Claude Desktop**  | Yes (via bash tool)      |
+| **Cursor IDE**      | Yes                      |
+| **OpenAI Codex**    | Yes                      |
+| **GitHub Copilot**  | Yes                      |
+| **Gemini CLI**      | Yes                      |
+| **Windsurf**        | Yes                      |
+| **Any Ollama agent**| Yes (if it can run bash) |
+
+This means your choice of LLM is entirely separate from your choice of browser tool. Use GPT-4.1 for accuracy, Claude for reasoning, or a local Ollama model for free — agent-browser doesn't care.
+
+### Setup for Job Automation
+
+```bash
+# Install (one command)
+npm install -g agent-browser
+agent-browser install    # downloads Chromium
+
+# Or zero-install via npx
+npx agent-browser open "https://linkedin.com/jobs"
+```
+
+### Example: Job Application via Claude Code
+
+With Claude Code + agent-browser, you simply tell Claude what to do in natural language:
+
+```bash
+# Add agent-browser as a skill
+npx skills add vercel-labs/agent-browser
+
+# Then in Claude Code, just ask:
+# "Use agent-browser to go to LinkedIn Jobs, search for 'Senior Software Engineer'
+#  in 'Remote', and for each qualified listing based on my resume (~/resume.pdf),
+#  fill out the Easy Apply form. Skip CAPTCHAs. Save results to applications.csv."
+```
+
+Claude Code will autonomously run sequences of agent-browser commands:
+```bash
+agent-browser --profile linkedin open "https://linkedin.com/jobs"
+agent-browser snapshot -i        # See interactive elements
+agent-browser fill @e3 "Senior Software Engineer"
+agent-browser fill @e4 "Remote"
+agent-browser click @e5          # Search button
+agent-browser snapshot -i        # Re-snapshot after navigation
+agent-browser click @e2          # First job listing
+# ... and so on
+```
+
+### Example: Job Application via Custom Script
+
+```bash
+#!/bin/bash
+# job_apply.sh — Called by your AI agent or run manually
+
+RESUME_PATH="$HOME/resume.pdf"
+SEARCH_TERM="Senior Software Engineer"
+LOCATION="Remote"
+
+# Start with a persistent profile (saves login state)
+agent-browser --profile jobs open "https://linkedin.com/jobs"
+sleep 2
+
+# Search
+agent-browser snapshot -i
+agent-browser fill @e3 "$SEARCH_TERM"
+agent-browser fill @e4 "$LOCATION"
+agent-browser click @e5
+
+# Get results
+agent-browser snapshot -i
+# The AI agent interprets the snapshot output and decides which jobs to apply to
+
+# For each qualified job:
+agent-browser click @e8            # Open job listing
+agent-browser snapshot -i          # Get application form elements
+agent-browser fill @e2 "Jane Doe"
+agent-browser fill @e3 "jane@email.com"
+agent-browser upload @e7 "$RESUME_PATH"
+agent-browser click @e10           # Submit
+agent-browser screenshot "applied_$(date +%s).png"  # Record proof
+```
+
+### Strengths
+
+- **93% fewer tokens** than full accessibility tree/DOM approaches — dramatically cheaper per step
+- **Truly LLM-agnostic** — works with ANY agent that can run shell commands, no vendor lock-in
+- **Blazing fast CLI** — Rust binary boots in <50ms, persistent daemon means near-instant subsequent commands
+- **108+ commands** — comprehensive: snapshot, click, fill, select, upload, screenshot, PDF, tabs, windows, cookies, network interception, dialogs, iframes, geolocation, device emulation
+- **Persistent profiles** — `--profile` flag preserves cookies, localStorage, auth state across restarts (log in to LinkedIn once, reuse forever)
+- **Session isolation** — `--session` flag for running multiple isolated browser sessions in parallel
+- **Pair browsing** — WebSocket viewport streaming so you can watch the agent work live
+- **File upload** — native support via `agent-browser upload`
+- **Network interception** — block, route, or mock HTTP requests (useful for skipping analytics/ads)
+- **CDP connection** — connect to existing Chrome instances or remote browsers (Browserbase)
+- **Apache-2.0 license** — fully permissive
+- **Vercel-backed** — active development, multiple releases per week
+- **Works on mobile** — iOS Simulator support via Appium (v0.9.0+)
+
+### Limitations
+
+- **No built-in AI** — purely a browser tool. The calling agent does ALL the reasoning. If your agent is weak, agent-browser can't compensate
+- **Ref invalidation** — element refs become stale after any page mutation, requiring frequent re-snapshots
+- **No self-correction** — unlike Skyvern's Validator Agent, agent-browser won't retry failed actions on its own
+- **No workflow system** — no loops, conditionals, or batch processing built in. Your agent or script handles orchestration
+- **No CAPTCHA solving** — same as all tools
+- **Chromium only** — no Firefox/WebKit (despite using Playwright-core)
+- **Pre-1.0 software** — API may change between releases
+- **No official Docker image** — for headless environments, connect to Browserbase
+- **No vision analysis** — relies on accessibility tree only; Canvas-rendered content or heavily visual UIs may not be well-represented
+- **Newer / smaller community** — 13K stars vs 78K for Browser Use; fewer tutorials and examples
+
+---
+
+## Solution 4: Playwright MCP + LLM
 
 > The most reliable browser control — powered by accessibility trees, not pixels or HTML
 
@@ -469,82 +637,86 @@ asyncio.run(run_job_agent())
 ```
 Browser Use:       Task → [DOM + Screenshot] → LLM → CDP Actions → Loop
 Skyvern:           Task → [Screenshot only]  → Vision LLM → Playwright Actions → Validator → Loop
+agent-browser:     Task → LLM → bash: agent-browser commands → Condensed Refs → LLM → Loop
 Playwright MCP:    Task → LLM → [MCP Tool Call] → Accessibility Tree → LLM → Loop
 ```
 
-| Aspect                    | Browser Use              | Skyvern                    | Playwright MCP            |
-|---------------------------|--------------------------|----------------------------|---------------------------|
-| **Page understanding**    | DOM tree + screenshots   | Screenshots only (vision)  | Accessibility tree        |
-| **Element identification**| XPath from DOM           | Visual coordinates         | Accessibility refs        |
-| **Resilience to layout changes** | Medium            | High (vision-based)        | High (semantic-based)     |
-| **Works on unseen sites** | Yes                      | Yes                        | Yes                       |
-| **Deterministic output**  | No                       | Yes (replay mode)          | Yes (accessibility tree)  |
-| **Token efficiency**      | Medium (large DOM)       | Low (screenshots are big)  | High (compact tree)       |
+| Aspect                    | Browser Use              | Skyvern                    | agent-browser              | Playwright MCP            |
+|---------------------------|--------------------------|----------------------------|----------------------------|---------------------------|
+| **Page understanding**    | DOM tree + screenshots   | Screenshots only (vision)  | Condensed interactive refs | Accessibility tree        |
+| **Element identification**| XPath from DOM           | Visual coordinates         | @e1, @e2 short refs       | Accessibility refs        |
+| **Resilience to layout changes** | Medium            | High (vision-based)        | High (semantic refs)       | High (semantic-based)     |
+| **Works on unseen sites** | Yes                      | Yes                        | Yes                        | Yes                       |
+| **Deterministic output**  | No                       | Yes (replay mode)          | Yes (same page = same refs)| Yes (accessibility tree)  |
+| **Token efficiency**      | Medium (large DOM)       | Low (screenshots are big)  | Very High (93% reduction)  | High (compact tree)       |
+| **Built-in AI**           | Yes (agent loop)         | Yes (planner/actor/validator)| No (CLI tool only)        | No (MCP tool server)      |
 
 ### Cost Comparison (Estimated per Job Application)
 
 Assuming a 15-step application form with GPT-4.1-mini:
 
-| Cost Factor               | Browser Use              | Skyvern                    | Playwright MCP            |
-|---------------------------|--------------------------|----------------------------|---------------------------|
-| **LLM cost per step**     | ~$0.03 (DOM + screenshot)| ~$0.05 (screenshot heavy)  | ~$0.01 (compact tree)     |
-| **First application**     | ~$0.45                   | ~$0.75                     | ~$0.15                    |
-| **Repeated (same site)**  | ~$0.45 (no optimization) | ~$0.04 (replay mode!)      | ~$0.15                    |
-| **100 applications (mixed sites)** | ~$45           | ~$30 (with replay savings) | ~$15                      |
-| **With local model (Ollama)** | Free (but lower accuracy) | Free (but much lower accuracy) | Free (with custom MCP client) |
+| Cost Factor               | Browser Use              | Skyvern                    | agent-browser              | Playwright MCP            |
+|---------------------------|--------------------------|----------------------------|----------------------------|---------------------------|
+| **LLM cost per step**     | ~$0.03 (DOM + screenshot)| ~$0.05 (screenshot heavy)  | ~$0.005 (condensed refs)   | ~$0.01 (compact tree)     |
+| **First application**     | ~$0.45                   | ~$0.75                     | ~$0.08                     | ~$0.15                    |
+| **Repeated (same site)**  | ~$0.45 (no optimization) | ~$0.04 (replay mode!)      | ~$0.08                     | ~$0.15                    |
+| **100 applications (mixed sites)** | ~$45           | ~$30 (with replay savings) | ~$8                        | ~$15                      |
+| **With local model (Ollama)** | Free (but lower accuracy) | Free (but much lower accuracy) | Free (if agent runs bash) | Free (with custom MCP client) |
 
 ### Feature Matrix for Job Application Automation
 
-| Feature                          | Browser Use | Skyvern | Playwright MCP |
-|----------------------------------|:-----------:|:-------:|:--------------:|
-| Search jobs on LinkedIn/Indeed   | Yes         | Yes     | Yes            |
-| Fill multi-page application forms| Yes         | Yes     | Yes            |
-| Upload resume (PDF)              | Basic       | Yes     | Yes            |
-| Generate tailored cover letter   | Via LLM     | Via LLM | Via LLM        |
-| Handle screening questions       | Yes         | Yes     | Yes            |
-| Multi-tab parallel applications  | Yes         | No      | Yes            |
-| Reuse saved browser login        | Yes         | Yes     | Yes            |
-| Self-correction on errors        | Basic retry | Yes (Validator Agent) | Via LLM retry |
-| Batch workflow (loop over URLs)  | Custom code | Built-in workflow | Custom code  |
-| Real-time monitoring             | CLI tools   | Livestream UI | Via MCP client |
-| Works on Workday/Greenhouse      | Often       | Often   | Best           |
-| CAPTCHA handling                 | No*         | No*     | No*            |
-| 2FA / TOTP support               | No          | Yes     | No             |
-| Password manager integration     | No          | Yes (Bitwarden) | No        |
-| Result export (CSV/JSON)         | Custom tools| Built-in extraction | Custom code |
-| Email notifications              | Custom tools| Built-in workflow block | Custom code |
+| Feature                          | Browser Use | Skyvern | agent-browser | Playwright MCP |
+|----------------------------------|:-----------:|:-------:|:-------------:|:--------------:|
+| Search jobs on LinkedIn/Indeed   | Yes         | Yes     | Yes           | Yes            |
+| Fill multi-page application forms| Yes         | Yes     | Yes           | Yes            |
+| Upload resume (PDF)              | Basic       | Yes     | Yes           | Yes            |
+| Generate tailored cover letter   | Via LLM     | Via LLM | Via LLM       | Via LLM        |
+| Handle screening questions       | Yes         | Yes     | Via LLM       | Yes            |
+| Multi-tab parallel applications  | Yes         | No      | Yes           | Yes            |
+| Reuse saved browser login        | Yes         | Yes     | Yes (--profile)| Yes           |
+| Self-correction on errors        | Basic retry | Yes (Validator Agent) | Via calling agent | Via LLM retry |
+| Batch workflow (loop over URLs)  | Custom code | Built-in workflow | Custom script | Custom code  |
+| Real-time monitoring             | CLI tools   | Livestream UI | Pair browsing (WebSocket) | Via MCP client |
+| Works on Workday/Greenhouse      | Often       | Often   | Often         | Best           |
+| CAPTCHA handling                 | No*         | No*     | No*           | No*            |
+| 2FA / TOTP support               | No          | Yes     | No            | No             |
+| Password manager integration     | No          | Yes (Bitwarden) | No     | No             |
+| Result export (CSV/JSON)         | Custom tools| Built-in extraction | Custom script | Custom code |
+| Email notifications              | Custom tools| Built-in workflow block | Custom script | Custom code |
+| Network interception             | No          | No      | Yes           | No             |
 
 > *\* No free tool solves CAPTCHAs natively. Workarounds: use a logged-in browser profile, third-party solvers (CapSolver ~$1/1000 solves), or apply on CAPTCHA-free portals.*
 
 ### LLM Compatibility
 
-| LLM Provider        | Browser Use | Skyvern | Playwright MCP |
-|----------------------|:-----------:|:-------:|:--------------:|
-| OpenAI (GPT-4)      | Yes         | Yes     | Yes*           |
-| Anthropic (Claude)   | Yes         | Yes     | Yes*           |
-| Google (Gemini)      | Yes         | Yes     | Yes*           |
-| Ollama (local)       | Yes         | Yes     | Yes**          |
-| LM Studio (local)    | Yes         | Yes     | Yes**          |
-| Groq                 | Yes         | Yes     | Yes*           |
-| Azure OpenAI         | Yes         | Yes     | Yes*           |
-| AWS Bedrock          | Yes         | Yes     | Yes*           |
+| LLM Provider        | Browser Use | Skyvern | agent-browser | Playwright MCP |
+|----------------------|:-----------:|:-------:|:-------------:|:--------------:|
+| OpenAI (GPT-4)      | Yes         | Yes     | Yes***        | Yes*           |
+| Anthropic (Claude)   | Yes         | Yes     | Yes***        | Yes*           |
+| Google (Gemini)      | Yes         | Yes     | Yes***        | Yes*           |
+| Ollama (local)       | Yes         | Yes     | Yes***        | Yes**          |
+| LM Studio (local)    | Yes         | Yes     | Yes***        | Yes**          |
+| Groq                 | Yes         | Yes     | Yes***        | Yes*           |
+| Azure OpenAI         | Yes         | Yes     | Yes***        | Yes*           |
+| AWS Bedrock          | Yes         | Yes     | Yes***        | Yes*           |
 
 > *\* Via MCP client configuration — the LLM choice is on the client side*
 > *\*\* Requires building a custom MCP client that connects to local models*
+> *\*\*\* agent-browser has zero LLM dependency — works with any agent that can execute bash commands*
 
 ### Setup & Maintenance
 
-| Factor                   | Browser Use              | Skyvern                    | Playwright MCP            |
-|--------------------------|--------------------------|----------------------------|---------------------------|
-| **Install command**      | `pip install browser-use`| `pip install skyvern`      | `npx @playwright/mcp`    |
-| **Dependencies**         | Python 3.11+, Chromium   | Python 3.11-3.12, Node.js, PostgreSQL | Node.js, MCP client |
-| **Database required**    | No                       | Yes (PostgreSQL)           | No                        |
-| **Web UI included**      | No (CLI only)            | Yes (port 8080)            | No                        |
-| **Docker support**       | Community only           | Official docker-compose    | No                        |
-| **Time to first run**    | ~5 minutes               | ~15 minutes                | ~5 minutes                |
-| **Maintenance burden**   | Low                      | Medium (DB, services)      | Low                       |
-| **GitHub activity**      | Very active (daily)      | Very active                | Very active (weekly)      |
-| **Commercial backing**   | YC + Browser Use Inc.    | YC + $2.7M seed            | Microsoft                 |
+| Factor                   | Browser Use              | Skyvern                    | agent-browser              | Playwright MCP            |
+|--------------------------|--------------------------|----------------------------|----------------------------|---------------------------|
+| **Install command**      | `pip install browser-use`| `pip install skyvern`      | `npm i -g agent-browser`  | `npx @playwright/mcp`    |
+| **Dependencies**         | Python 3.11+, Chromium   | Python 3.11-3.12, Node.js, PostgreSQL | Node.js (+ optional Rust) | Node.js, MCP client |
+| **Database required**    | No                       | Yes (PostgreSQL)           | No                         | No                        |
+| **Web UI included**      | No (CLI only)            | Yes (port 8080)            | No (pair browsing stream)  | No                        |
+| **Docker support**       | Community only           | Official docker-compose    | No (use Browserbase)       | No                        |
+| **Time to first run**    | ~5 minutes               | ~15 minutes                | ~2 minutes                 | ~5 minutes                |
+| **Maintenance burden**   | Low                      | Medium (DB, services)      | Very Low                   | Low                       |
+| **GitHub activity**      | Very active (daily)      | Very active                | Very active (multiple/week)| Very active (weekly)      |
+| **Commercial backing**   | YC + Browser Use Inc.    | YC + $2.7M seed            | Vercel                     | Microsoft                 |
 
 ---
 
@@ -695,20 +867,33 @@ Since no free tool solves CAPTCHAs, here are practical workarounds:
 
 ## Final Verdict
 
-| Criterion                     | Winner              | Why                                          |
-|-------------------------------|---------------------|----------------------------------------------|
-| **Easiest to start**          | Browser Use         | `pip install` + 10 lines of Python           |
-| **Best for repeated workflows**| Skyvern            | Explore→Replay compiles to fast scripts      |
-| **Most reliable on complex sites**| Playwright MCP | Accessibility tree handles JS-heavy portals  |
-| **Cheapest with commercial API**| Playwright MCP   | Smallest token footprint per step            |
-| **Cheapest overall (free)**   | Browser Use + Ollama| Best local model support                     |
-| **Best form filling accuracy**| Skyvern             | SOTA on WebBench WRITE benchmarks            |
-| **Best community/support**    | Browser Use         | 78K stars, active Discord, daily releases    |
-| **Best for cover letters**    | Any (LLM-dependent) | All three use LLMs that can generate text    |
-| **Most permissive license**   | Browser Use / Playwright MCP | MIT / Apache-2.0              |
-| **Best production infrastructure**| Skyvern        | Web UI, API, SDKs, webhooks, integrations    |
+| Criterion                      | Winner              | Why                                          |
+|--------------------------------|---------------------|----------------------------------------------|
+| **Easiest to start**           | Browser Use         | `pip install` + 10 lines of Python           |
+| **Fastest setup (zero config)**| agent-browser       | `npx agent-browser open url` — done in 2 min |
+| **Best for repeated workflows**| Skyvern             | Explore→Replay compiles to fast scripts      |
+| **Most reliable on complex sites**| Playwright MCP  | Accessibility tree handles JS-heavy portals  |
+| **Cheapest with commercial API**| agent-browser      | 93% fewer tokens = ~$0.005/step              |
+| **Cheapest overall (free)**    | Browser Use + Ollama| Best local model support                     |
+| **Best form filling accuracy** | Skyvern             | SOTA on WebBench WRITE benchmarks            |
+| **Best community/support**     | Browser Use         | 78K stars, active Discord, daily releases    |
+| **Best for cover letters**     | Any (LLM-dependent) | All four use LLMs that can generate text     |
+| **Most permissive license**    | Browser Use / agent-browser / Playwright MCP | MIT / Apache-2.0 |
+| **Best production infrastructure**| Skyvern         | Web UI, API, SDKs, webhooks, integrations    |
+| **Most LLM-agnostic**          | agent-browser       | Zero LLM code — works with literally any agent|
+| **Best for AI coding agents**  | agent-browser       | Built specifically for Claude Code, Cursor, Codex |
 
-**My recommendation**: Start with **Browser Use** for its simplicity and community. If you find yourself applying to 50+ jobs on the same portals, migrate to **Skyvern** for its replay optimization. If you're already using Claude Desktop/Code, just add **Playwright MCP** — it's the simplest path with the highest reliability.
+### Recommendation Matrix
+
+| Your Situation | Best Choice | Why |
+|---------------|-------------|-----|
+| New to browser agents, want quick start | **Browser Use** | Largest community, most tutorials, batteries-included |
+| Already use Claude Code or Cursor | **agent-browser** | Native integration, cheapest per-step, just `npx` and go |
+| Applying to 50+ jobs on same portals | **Skyvern** | Explore→Replay saves 2.7x cost on repeated workflows |
+| Complex JS-heavy career portals (Workday, Greenhouse) | **Playwright MCP** | Accessibility tree is most reliable on dynamic sites |
+| Want completely free (local LLM) | **Browser Use + Ollama** | Best local model support and documentation |
+| Want lowest cost with commercial API | **agent-browser** | 93% token reduction = ~$8 for 100 applications |
+| Need production infrastructure (APIs, webhooks, UI) | **Skyvern** | Only solution with built-in Web UI, REST API, workflow builder |
 
 ---
 
