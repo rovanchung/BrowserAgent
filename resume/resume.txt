@@ -1,0 +1,8 @@
+PASTE YOUR RESUME HERE
+
+Replace this entire file with the plain-text content of your resume.
+
+Tips:
+  - Plain text works best (the agent reads this file as-is).
+  - Include: contact info, summary, work experience, education, skills.
+  - No special formatting needed — just clear section headings.
