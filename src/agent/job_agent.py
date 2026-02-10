@@ -109,6 +109,112 @@ For each qualified job:
 """
 
 
+def _build_apply_prompt(url: str) -> str:
+    """Compose a task prompt to apply directly to a single job posting URL."""
+    return f"""\
+You are an autonomous job application assistant.
+
+## Your Goal
+Apply to a specific job posting on behalf of the candidate.
+
+## Step 1 — Read candidate data
+1. Call the `read_resume` action to load the resume.
+2. Call the `get_profile` action to load personal info and preferences.
+   Keep this data in memory for filling forms.
+
+## Step 2 — Navigate to the job posting
+1. Go directly to: {url}
+2. Read the full job description.
+
+## Step 3 — Evaluate the job
+1. Call `check_company` with the company name — if "skip", call `save_skipped_job` with reason "company_blocked" and stop.
+2. Call `check_job_description` with the full description — if "skip", call `save_skipped_job` with reason "keyword_blocked" and stop.
+
+## Step 4 — Apply
+1. Click "Easy Apply" or the application button.
+2. Fill all form fields using the profile data. For screening questions, call `answer_screening_question` with the full question text.
+3. Upload the resume when a file upload field appears.
+4. If the application asks for a cover letter, write a brief, tailored cover letter using the job description and the candidate's resume.
+5. Review the filled form for accuracy, then submit.
+6. After submitting, call `save_application` with all job details and the cover letter text.
+7. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.
+
+## Important Rules
+- NEVER fabricate information. Only use data from the resume and profile.
+- When a form field doesn't match any profile data, leave it blank or call `ask_human`.
+- If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
+"""
+
+
+async def run_single_apply(
+    llm: BaseChatModel,
+    url: str,
+) -> RunSummary:
+    """Apply to a single job posting by URL.
+
+    Parameters
+    ----------
+    llm:
+        The LangChain chat model to use for the browser agent.
+    url:
+        Direct URL to the job posting.
+
+    Returns
+    -------
+    RunSummary with stats for the single application.
+    """
+    summary = RunSummary()
+    browser = _build_browser()
+
+    try:
+        print(f"\n{'='*60}")
+        print(f"  Applying to: {url}")
+        print(f"{'='*60}\n")
+
+        task = _build_apply_prompt(url)
+
+        agent = Agent(
+            task=task,
+            llm=llm,
+            browser=browser,
+            controller=controller,
+        )
+
+        history = await agent.run(max_steps=MAX_AGENT_STEPS)
+
+        if history.usage:
+            u = history.usage
+            summary.token_usage.input_tokens += u.total_prompt_tokens
+            summary.token_usage.output_tokens += u.total_completion_tokens
+            summary.token_usage.cached_tokens += u.total_prompt_cached_tokens
+            summary.token_usage.total_tokens += u.total_tokens
+            summary.token_usage.total_cost += u.total_cost
+
+        result = history.final_result()
+        if result:
+            print(f"\nAgent summary: {result[:500]}")
+    finally:
+        await browser.stop()
+
+    summary.run_finished = datetime.now().isoformat()
+
+    t = summary.token_usage
+    print(f"\n{'─'*40}")
+    print(f"  Token Usage")
+    print(f"{'─'*40}")
+    print(f"  Input:   {t.input_tokens:,}")
+    print(f"  Output:  {t.output_tokens:,}")
+    print(f"  Cached:  {t.cached_tokens:,}")
+    print(f"  Total:   {t.total_tokens:,}")
+    print(f"  Cost:    ${t.total_cost:.4f}")
+    print(f"{'─'*40}")
+
+    summary_path = save_run_summary(summary)
+    print(f"\nRun summary saved to {summary_path}")
+
+    return summary
+
+
 async def run_job_search(
     llm: BaseChatModel,
     searches: list[dict] | None = None,

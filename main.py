@@ -7,6 +7,7 @@ Usage:
     python main.py --provider openai  # Override LLM provider
     python main.py --model gpt-4.1   # Override model name
     python main.py --headless         # Run in headless mode
+    python main.py --url <link>       # Apply to a specific job posting
     python main.py --dry-run          # Print the task prompt without running
 """
 
@@ -40,6 +41,10 @@ def parse_args() -> argparse.Namespace:
         "--headless",
         action="store_true",
         help="Run browser without a visible window",
+    )
+    parser.add_argument(
+        "--url",
+        help="Apply directly to a single job posting URL (skips search)",
     )
     parser.add_argument(
         "--dry-run",
@@ -96,23 +101,31 @@ async def main() -> None:
     # Now import everything that depends on settings
     from config import job_titles
     from config.settings import RESUME_PATH
-    from src.agent.job_agent import run_job_search, _build_task_prompt
+    from src.agent.job_agent import run_job_search, run_single_apply, _build_task_prompt, _build_apply_prompt
     from src.agent.llm import build_llm
 
     _check_prerequisites()
 
     if args.dry_run:
         print("=== DRY RUN — Task prompts ===\n")
-        for search in job_titles.SEARCHES:
-            print(f"--- Search: {search['title']} in {search['location']} ---")
-            print(_build_task_prompt(search))
-            print()
+        if args.url:
+            print(f"--- Direct apply: {args.url} ---")
+            print(_build_apply_prompt(args.url))
+        else:
+            for search in job_titles.SEARCHES:
+                print(f"--- Search: {search['title']} in {search['location']} ---")
+                print(_build_task_prompt(search))
+                print()
         return
 
     _print_banner()
 
     llm = build_llm()
-    summary = await run_job_search(llm)
+
+    if args.url:
+        summary = await run_single_apply(llm, args.url)
+    else:
+        summary = await run_job_search(llm)
 
     print("\n" + "=" * 60)
     print("  Run Complete")
