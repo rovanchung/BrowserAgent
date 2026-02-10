@@ -56,8 +56,10 @@ Location: {job.location}
 Write the cover letter now.
 """
 
-    response = llm.invoke([
-        SystemMessage(content=_SYSTEM_PROMPT),
-        HumanMessage(content=user_prompt),
-    ])
+    response = llm.invoke(
+        [
+            SystemMessage(content=_SYSTEM_PROMPT),
+            HumanMessage(content=user_prompt),
+        ]
+    )
     return response.content.strip()

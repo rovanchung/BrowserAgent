@@ -23,6 +23,7 @@ def _ensure_output_dir() -> Path:
 
 # ── JSON output ──────────────────────────────────────────────────────
 
+
 def _json_path() -> Path:
     return _ensure_output_dir() / "applications.json"
 
@@ -47,10 +48,18 @@ def save_record_json(record: ApplicationRecord) -> None:
 # ── CSV output ───────────────────────────────────────────────────────
 
 _CSV_COLUMNS = [
-    "applied_at", "status", "skip_reason",
-    "title", "company", "location", "url",
-    "salary_range", "job_board", "search_query",
-    "cover_letter", "notes",
+    "applied_at",
+    "status",
+    "skip_reason",
+    "title",
+    "company",
+    "location",
+    "url",
+    "salary_range",
+    "job_board",
+    "search_query",
+    "cover_letter",
+    "notes",
 ]
 
 
@@ -86,6 +95,7 @@ def save_record_csv(record: ApplicationRecord) -> None:
 
 # ── Public API ───────────────────────────────────────────────────────
 
+
 def save_record(record: ApplicationRecord) -> Path:
     """Save an application record using the configured output format."""
     if OUTPUT_FORMAT == "csv":
@@ -104,8 +114,12 @@ def save_cover_letter(record: ApplicationRecord) -> Path | None:
     cl_dir = _ensure_output_dir() / "cover_letters"
     cl_dir.mkdir(exist_ok=True)
 
-    safe_company = "".join(c if c.isalnum() or c in " _-" else "_" for c in record.job.company)
-    safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in record.job.title)
+    safe_company = "".join(
+        c if c.isalnum() or c in " _-" else "_" for c in record.job.company
+    )
+    safe_title = "".join(
+        c if c.isalnum() or c in " _-" else "_" for c in record.job.title
+    )
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{safe_company}_{safe_title}_{timestamp}.txt"
 

@@ -32,7 +32,7 @@ def read_resume() -> ActionResult:
     if not path.exists():
         return ActionResult(
             extracted_content=f"ERROR: Resume not found at {path}. "
-            "Please create resume/resume.txt first.",
+            "Please create resume/resume.md first.",
             error=f"Resume file not found: {path}",
         )
     text = path.read_text(encoding="utf-8")
@@ -76,9 +76,7 @@ def answer_screening_question(question: str) -> ActionResult:
     question_lower = question.lower()
     for keyword, answer in profile.QUESTION_ANSWERS.items():
         if keyword.lower() in question_lower:
-            return ActionResult(
-                extracted_content=f"Answer: {answer}"
-            )
+            return ActionResult(extracted_content=f"Answer: {answer}")
     return ActionResult(
         extracted_content="No pre-configured answer found for this question. "
         "Use your best judgment based on the candidate's profile and resume."
@@ -141,7 +139,9 @@ def save_skipped_job(
         notes=notes,
     )
     save_record(record)
-    return ActionResult(extracted_content=f"Skipped: {job_title} at {company} ({skip_reason.value})")
+    return ActionResult(
+        extracted_content=f"Skipped: {job_title} at {company} ({skip_reason.value})"
+    )
 
 
 @controller.action(
@@ -165,11 +165,15 @@ def check_job_description(description: str) -> ActionResult:
     desc_lower = description.lower()
     for kw in profile.KEYWORDS_TO_AVOID:
         if kw.lower() in desc_lower:
-            return ActionResult(extracted_content=f"skip — matched blocked keyword: {kw}")
+            return ActionResult(
+                extracted_content=f"skip — matched blocked keyword: {kw}"
+            )
     return ActionResult(extracted_content="ok")
 
 
-@controller.action("Ask the human user for help (e.g. CAPTCHA, login, ambiguous question)")
+@controller.action(
+    "Ask the human user for help (e.g. CAPTCHA, login, ambiguous question)"
+)
 def ask_human(message: str) -> ActionResult:
     """Pause and ask the user for input."""
     print(f"\n{'='*60}")

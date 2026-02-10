@@ -83,7 +83,9 @@ def _print_banner() -> None:
                                                 |___/
     """)
     print(f"  LLM:  {LLM_PROVIDER} / {LLM_MODEL}")
-    print(f"  Mode: {'headless' if __import__('config.settings', fromlist=['HEADLESS']).HEADLESS else 'visible browser'}")
+    print(
+        f"  Mode: {'headless' if __import__('config.settings', fromlist=['HEADLESS']).HEADLESS else 'visible browser'}"
+    )
     print()
 
 

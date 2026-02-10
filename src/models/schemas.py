@@ -12,8 +12,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-
 # ── Enums ────────────────────────────────────────────────────────────
+
 
 class ApplicationStatus(str, Enum):
     APPLIED = "applied"
@@ -34,6 +34,7 @@ class SkipReason(str, Enum):
 
 # ── Job Listing ──────────────────────────────────────────────────────
 
+
 class JobListing(BaseModel):
     """A single job listing discovered during search."""
 
@@ -50,6 +51,7 @@ class JobListing(BaseModel):
 
 # ── Application Record ───────────────────────────────────────────────
 
+
 class ApplicationRecord(BaseModel):
     """One application attempt — saved to the output log."""
 
@@ -62,6 +64,7 @@ class ApplicationRecord(BaseModel):
 
 
 # ── Run Summary ──────────────────────────────────────────────────────
+
 
 class RunSummary(BaseModel):
     """Aggregated stats for a single agent run."""

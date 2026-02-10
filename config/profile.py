@@ -22,10 +22,10 @@ WORK_AUTHORIZATION = "US Citizen"  # e.g. "US Citizen", "Green Card", "H1B", "OP
 REQUIRES_SPONSORSHIP = False
 
 # ── Demographics (optional — leave blank to skip) ────────────────────
-GENDER = ""            # e.g. "Male", "Female", "Non-binary", "Prefer not to say"
-RACE_ETHNICITY = ""    # e.g. "Asian", "White", "Prefer not to say"
-VETERAN_STATUS = ""    # e.g. "Not a veteran", "Veteran", "Prefer not to say"
-DISABILITY_STATUS = "" # e.g. "No", "Yes", "Prefer not to say"
+GENDER = ""  # e.g. "Male", "Female", "Non-binary", "Prefer not to say"
+RACE_ETHNICITY = ""  # e.g. "Asian", "White", "Prefer not to say"
+VETERAN_STATUS = ""  # e.g. "Not a veteran", "Veteran", "Prefer not to say"
+DISABILITY_STATUS = ""  # e.g. "No", "Yes", "Prefer not to say"
 
 # ── Education ────────────────────────────────────────────────────────
 EDUCATION = [
@@ -49,11 +49,22 @@ NOTICE_PERIOD = "2 weeks"
 
 # ── Skills ───────────────────────────────────────────────────────────
 SKILLS = [
-    "Python", "TypeScript", "Go",
-    "React", "Next.js", "Node.js",
-    "AWS", "GCP", "Kubernetes", "Docker",
-    "PostgreSQL", "Redis", "Kafka",
-    "System Design", "CI/CD", "Terraform",
+    "Python",
+    "TypeScript",
+    "Go",
+    "React",
+    "Next.js",
+    "Node.js",
+    "AWS",
+    "GCP",
+    "Kubernetes",
+    "Docker",
+    "PostgreSQL",
+    "Redis",
+    "Kafka",
+    "System Design",
+    "CI/CD",
+    "Terraform",
 ]
 
 # ── Salary Expectations ──────────────────────────────────────────────
@@ -87,17 +98,14 @@ QUESTION_ANSWERS = {
     "legally authorized": "Yes",
     "right to work": "Yes",
     "work permit": "Yes, I am authorized to work",
-
     # Experience
     "years of experience": str(YEARS_OF_EXPERIENCE),
     "how many years": str(YEARS_OF_EXPERIENCE),
-
     # Availability
     "start date": EARLIEST_START_DATE,
     "when can you start": EARLIEST_START_DATE,
     "notice period": NOTICE_PERIOD,
     "available to start": EARLIEST_START_DATE,
-
     # Location / Remote
     "willing to relocate": "No" if not WILLING_TO_RELOCATE else "Yes",
     "work remotely": "Yes" if OPEN_TO_REMOTE else "No",
@@ -105,16 +113,13 @@ QUESTION_ANSWERS = {
     "commute": "Yes" if OPEN_TO_ONSITE or OPEN_TO_HYBRID else "No, I prefer remote",
     "on-site": "Yes" if OPEN_TO_ONSITE else "No",
     "hybrid": "Yes" if OPEN_TO_HYBRID else "No",
-
     # Salary
     "salary expectation": f"{DESIRED_SALARY_MIN:,}-{DESIRED_SALARY_MAX:,} {SALARY_CURRENCY}",
     "desired salary": f"{DESIRED_SALARY_MIN:,}-{DESIRED_SALARY_MAX:,} {SALARY_CURRENCY}",
     "compensation expectation": f"{DESIRED_SALARY_MIN:,}-{DESIRED_SALARY_MAX:,} {SALARY_CURRENCY}",
-
     # Education
     "highest degree": EDUCATION[0]["degree"] if EDUCATION else "",
     "degree": EDUCATION[0]["degree"] if EDUCATION else "",
-
     # General
     "cover letter": "",  # left blank — agent generates per-job cover letters
     "additional information": "",

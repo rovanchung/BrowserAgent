@@ -25,3 +25,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+.claude/
+
+# User data
+resume/

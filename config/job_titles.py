@@ -37,10 +37,12 @@ JOB_BOARDS = [
 ]
 
 # ── Search Filters ───────────────────────────────────────────────────
-DATE_POSTED = "past_week"          # "past_24h", "past_week", "past_month", "any"
-EXPERIENCE_LEVEL = "mid_senior"    # "entry", "associate", "mid_senior", "director", "executive", "any"
-MAX_APPLICATIONS_PER_RUN = 10      # Stop after this many successful applications per run
-MAX_LISTINGS_TO_REVIEW = 30        # Max listings to review per search before moving on
+DATE_POSTED = "past_week"  # "past_24h", "past_week", "past_month", "any"
+EXPERIENCE_LEVEL = (
+    "mid_senior"  # "entry", "associate", "mid_senior", "director", "executive", "any"
+)
+MAX_APPLICATIONS_PER_RUN = 10  # Stop after this many successful applications per run
+MAX_LISTINGS_TO_REVIEW = 30  # Max listings to review per search before moving on
 
 # ── Qualification Matching ───────────────────────────────────────────
 # Minimum fraction of your skills that must appear in the job description

@@ -39,7 +39,7 @@ BrowserAgent/
 │   └── settings.py                  # LLM provider, browser, output settings
 │
 ├── resume/
-│   └── resume.txt                   # Your resume (plain text)
+│   └── resume.md                   # Your resume (plain text)
 │
 ├── src/
 │   ├── agent/
@@ -123,7 +123,7 @@ Replace the placeholder with your actual resume:
 
 ```bash
 # Paste your plain-text resume into this file:
-nano resume/resume.txt
+nano resume/resume.md
 ```
 
 Tips for the resume file:
@@ -292,7 +292,7 @@ The agent has 8 custom actions beyond standard browser interaction:
 
 | Action | What it does |
 |--------|-------------|
-| `read_resume` | Loads `resume/resume.txt` into the agent's context |
+| `read_resume` | Loads `resume/resume.md` into the agent's context |
 | `get_profile` | Returns structured profile data (name, email, skills, etc.) |
 | `answer_screening_question` | Keyword-matches a question to your pre-configured answer |
 | `save_application` | Logs a successful application + cover letter to output |
@@ -309,7 +309,7 @@ The agent has 8 custom actions beyond standard browser interaction:
 | `config/profile.py` | Your identity | Name, email, phone, skills, education, `QUESTION_ANSWERS`, `COMPANIES_TO_SKIP` |
 | `config/job_titles.py` | What to search for | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `MAX_APPLICATIONS_PER_RUN` |
 | `config/settings.py` | Agent behavior | `HEADLESS`, `MAX_AGENT_STEPS`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
-| `resume/resume.txt` | Your resume | Plain text, no formatting required |
+| `resume/resume.md` | Your resume | Plain text, no formatting required |
 
 ## Supported LLM Providers
 
@@ -335,7 +335,7 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 
 | Problem | Solution |
 |---------|----------|
-| `Resume file not found` | Create `resume/resume.txt` with your resume text |
+| `Resume file not found` | Create `resume/resume.md` with your resume text |
 | Browser won't start | Run `uvx browser-use install` to install Chromium |
 | Login wall on LinkedIn | Set `CHROME_PROFILE_PATH` in `.env` to your logged-in Chrome profile |
 | CAPTCHA appears | The agent will call `ask_human` — solve it manually and press Enter |

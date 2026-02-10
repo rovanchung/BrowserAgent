@@ -10,7 +10,7 @@ from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-RESUME_PATH = PROJECT_ROOT / "resume" / "resume.txt"
+RESUME_PATH = PROJECT_ROOT / "resume" / "resume.md"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 
 # ── LLM Configuration ───────────────────────────────────────────────

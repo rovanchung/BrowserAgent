@@ -93,7 +93,7 @@ def save_job(title: str, company: str, url: str, filename: str = "jobs.csv") -> 
     return f"Saved {title} at {company}"
 
 @tools.action(description="Read resume content from file")
-def read_resume(filepath: str = "resume.txt") -> str:
+def read_resume(filepath: str = "resume.md") -> str:
     with open(filepath, "r") as f:
         return f.read()
 
@@ -103,7 +103,7 @@ async def main():
 
     agent = Agent(
         task="""
-        1. Read my resume from resume.txt
+        1. Read my resume from resume.md
         2. Go to LinkedIn jobs and search for 'Senior Software Engineer' in 'San Francisco'
         3. For each of the first 5 results:
            - Check if I'm qualified based on my resume
@@ -577,7 +577,7 @@ Job criteria:
 """
 
 async def run_job_agent():
-    with open("resume.txt") as f:
+    with open("resume.md") as f:
         resume = f.read()
 
     messages = [
@@ -734,7 +734,7 @@ pip install browser-use langchain-openai
 uvx browser-use install
 
 # 2. Create your resume file
-cat > resume.txt << 'EOF'
+cat > resume.md << 'EOF'
 [Paste your resume text here]
 EOF
 
@@ -756,7 +756,7 @@ async def main():
     browser = Browser()
     llm = ChatOpenAI(model="gpt-4.1-mini")
 
-    with open("resume.txt") as f:
+    with open("resume.md") as f:
         resume = f.read()
 
     agent = Agent(
