@@ -29,9 +29,20 @@ from src.utils.output import load_applied_urls, save_run_summary
 
 def _build_browser() -> Browser:
     """Create a Browser instance with the user's configuration."""
+    from pathlib import Path
+
     kwargs: dict = {"headless": HEADLESS}
     if CHROME_PROFILE_PATH:
-        kwargs["user_data_dir"] = CHROME_PROFILE_PATH
+        profile_path = Path(CHROME_PROFILE_PATH)
+        # Chrome expects user_data_dir to be the top-level data directory
+        # (e.g. ~/.config/google-chrome) and profile_directory to be the
+        # profile folder name inside it (e.g. "Profile 1").  If the user
+        # supplied a path that ends with a profile folder, split them.
+        if profile_path.name.startswith("Profile") or profile_path.name == "Default":
+            kwargs["user_data_dir"] = str(profile_path.parent)
+            kwargs["profile_directory"] = profile_path.name
+        else:
+            kwargs["user_data_dir"] = CHROME_PROFILE_PATH
     return Browser(**kwargs)
 
 
