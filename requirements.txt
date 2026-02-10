@@ -5,5 +5,5 @@ pydantic>=2.0.0
 # LLM providers — install the one(s) you need:
 langchain-openai>=0.3.0       # pip install langchain-openai
 langchain-anthropic>=0.3.0    # pip install langchain-anthropic
-# langchain-google-genai>=2.0.0  # pip install langchain-google-genai
+langchain-google-genai>=2.0.0  # pip install langchain-google-genai
 # langchain-ollama>=0.3.0        # pip install langchain-ollama

@@ -66,6 +66,16 @@ class ApplicationRecord(BaseModel):
 # ── Run Summary ──────────────────────────────────────────────────────
 
 
+class TokenUsage(BaseModel):
+    """Token consumption for a single search or the entire run."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cached_tokens: int = 0
+    total_tokens: int = 0
+    total_cost: float = 0.0
+
+
 class RunSummary(BaseModel):
     """Aggregated stats for a single agent run."""
 
@@ -76,3 +86,4 @@ class RunSummary(BaseModel):
     total_skipped: int = 0
     total_failed: int = 0
     applications: list[ApplicationRecord] = Field(default_factory=list)
+    token_usage: TokenUsage = Field(default_factory=TokenUsage)

@@ -59,7 +59,7 @@ def get_profile() -> ActionResult:
         "current_company": profile.CURRENT_COMPANY,
         "skills": profile.SKILLS,
         "education": profile.EDUCATION,
-        "desired_salary": f"{profile.DESIRED_SALARY_MIN:,}-{profile.DESIRED_SALARY_MAX:,} {profile.SALARY_CURRENCY}",
+        "desired_salary": f"{profile.DESIRED_SALARY_MIN:,}+ {profile.SALARY_CURRENCY}",
         "earliest_start_date": profile.EARLIEST_START_DATE,
         "willing_to_relocate": profile.WILLING_TO_RELOCATE,
         "open_to_remote": profile.OPEN_TO_REMOTE,

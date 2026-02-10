@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 
-from browser_use import Agent, Browser, BrowserConfig
+from browser_use import Agent, Browser
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from config import job_titles, profile
@@ -22,17 +22,17 @@ from config.settings import (
     RESUME_PATH,
 )
 from src.agent.actions import controller
-from src.models.schemas import RunSummary
+from src.models.schemas import RunSummary, TokenUsage
 from src.utils.cover_letter import generate_cover_letter
 from src.utils.output import load_applied_urls, save_run_summary
 
 
 def _build_browser() -> Browser:
     """Create a Browser instance with the user's configuration."""
-    config_kwargs: dict = {"headless": HEADLESS}
+    kwargs: dict = {"headless": HEADLESS}
     if CHROME_PROFILE_PATH:
-        config_kwargs["chrome_instance_path"] = CHROME_PROFILE_PATH
-    return Browser(config=BrowserConfig(**config_kwargs))
+        kwargs["user_data_dir"] = CHROME_PROFILE_PATH
+    return Browser(**kwargs)
 
 
 def _build_task_prompt(search: dict) -> str:
@@ -144,19 +144,39 @@ async def run_job_search(
                 llm=llm,
                 browser=browser,
                 controller=controller,
-                max_steps=MAX_AGENT_STEPS,
             )
 
-            history = await agent.run()
+            history = await agent.run(max_steps=MAX_AGENT_STEPS)
+
+            # Accumulate token usage
+            if history.usage:
+                u = history.usage
+                summary.token_usage.input_tokens += u.total_prompt_tokens
+                summary.token_usage.output_tokens += u.total_completion_tokens
+                summary.token_usage.cached_tokens += u.total_prompt_cached_tokens
+                summary.token_usage.total_tokens += u.total_tokens
+                summary.token_usage.total_cost += u.total_cost
 
             print(f"\n--- Search complete: {search['title']} ---")
             result = history.final_result()
             if result:
                 print(f"Agent summary: {result[:500]}")
     finally:
-        await browser.close()
+        await browser.stop()
 
     summary.run_finished = datetime.now().isoformat()
+
+    # Print token usage summary
+    t = summary.token_usage
+    print(f"\n{'─'*40}")
+    print(f"  Token Usage")
+    print(f"{'─'*40}")
+    print(f"  Input:   {t.input_tokens:,}")
+    print(f"  Output:  {t.output_tokens:,}")
+    print(f"  Cached:  {t.cached_tokens:,}")
+    print(f"  Total:   {t.total_tokens:,}")
+    print(f"  Cost:    ${t.total_cost:.4f}")
+    print(f"{'─'*40}")
 
     # Save the run summary
     summary_path = save_run_summary(summary)
