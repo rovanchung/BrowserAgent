@@ -27,8 +27,8 @@ from src.utils.cover_letter import generate_cover_letter
 from src.utils.output import load_applied_urls, save_run_summary
 
 
-def _build_browser() -> Browser:
-    """Create a Browser instance with the user's configuration."""
+def _browser_kwargs() -> dict:
+    """Return keyword arguments for constructing a Browser instance."""
     from pathlib import Path
 
     kwargs: dict = {"headless": HEADLESS}
@@ -43,7 +43,7 @@ def _build_browser() -> Browser:
             kwargs["profile_directory"] = profile_path.name
         else:
             kwargs["user_data_dir"] = CHROME_PROFILE_PATH
-    return Browser(**kwargs)
+    return kwargs
 
 
 def _build_task_prompt(search: dict) -> str:
@@ -175,37 +175,36 @@ async def run_single_apply(
     RunSummary with stats for the single application.
     """
     summary = RunSummary()
-    browser = _build_browser()
 
-    try:
-        print(f"\n{'='*60}")
-        print(f"  Applying to: {url}")
-        print(f"{'='*60}\n")
+    print(f"\n{'='*60}")
+    print(f"  Applying to: {url}")
+    print(f"{'='*60}\n")
 
-        task = _build_apply_prompt(url)
+    task = _build_apply_prompt(url)
 
-        agent = Agent(
-            task=task,
-            llm=llm,
-            browser=browser,
-            controller=controller,
-        )
+    # Each Agent gets its own Browser so its lifecycle (start/kill) is
+    # self-contained — browser_use 0.11.x kills the browser session when
+    # Agent.run() finishes.
+    agent = Agent(
+        task=task,
+        llm=llm,
+        browser=Browser(**_browser_kwargs()),
+        controller=controller,
+    )
 
-        history = await agent.run(max_steps=MAX_AGENT_STEPS)
+    history = await agent.run(max_steps=MAX_AGENT_STEPS)
 
-        if history.usage:
-            u = history.usage
-            summary.token_usage.input_tokens += u.total_prompt_tokens
-            summary.token_usage.output_tokens += u.total_completion_tokens
-            summary.token_usage.cached_tokens += u.total_prompt_cached_tokens
-            summary.token_usage.total_tokens += u.total_tokens
-            summary.token_usage.total_cost += u.total_cost
+    if history.usage:
+        u = history.usage
+        summary.token_usage.input_tokens += u.total_prompt_tokens
+        summary.token_usage.output_tokens += u.total_completion_tokens
+        summary.token_usage.cached_tokens += u.total_prompt_cached_tokens
+        summary.token_usage.total_tokens += u.total_tokens
+        summary.token_usage.total_cost += u.total_cost
 
-        result = history.final_result()
-        if result:
-            print(f"\nAgent summary: {result[:500]}")
-    finally:
-        await browser.stop()
+    result = history.final_result()
+    if result:
+        print(f"\nAgent summary: {result[:500]}")
 
     summary.run_finished = datetime.now().isoformat()
 
@@ -246,40 +245,40 @@ async def run_job_search(
     """
     searches = searches or job_titles.SEARCHES
     summary = RunSummary()
-    browser = _build_browser()
+    browser_kw = _browser_kwargs()
 
-    try:
-        for search in searches:
-            print(f"\n{'='*60}")
-            print(f"  Searching: {search['title']} — {search['location']}")
-            print(f"{'='*60}\n")
+    for search in searches:
+        print(f"\n{'='*60}")
+        print(f"  Searching: {search['title']} — {search['location']}")
+        print(f"{'='*60}\n")
 
-            task = _build_task_prompt(search)
+        task = _build_task_prompt(search)
 
-            agent = Agent(
-                task=task,
-                llm=llm,
-                browser=browser,
-                controller=controller,
-            )
+        # Each Agent gets its own Browser so its lifecycle (start/kill)
+        # is self-contained — browser_use 0.11.x kills the browser
+        # session when Agent.run() finishes.
+        agent = Agent(
+            task=task,
+            llm=llm,
+            browser=Browser(**browser_kw),
+            controller=controller,
+        )
 
-            history = await agent.run(max_steps=MAX_AGENT_STEPS)
+        history = await agent.run(max_steps=MAX_AGENT_STEPS)
 
-            # Accumulate token usage
-            if history.usage:
-                u = history.usage
-                summary.token_usage.input_tokens += u.total_prompt_tokens
-                summary.token_usage.output_tokens += u.total_completion_tokens
-                summary.token_usage.cached_tokens += u.total_prompt_cached_tokens
-                summary.token_usage.total_tokens += u.total_tokens
-                summary.token_usage.total_cost += u.total_cost
+        # Accumulate token usage
+        if history.usage:
+            u = history.usage
+            summary.token_usage.input_tokens += u.total_prompt_tokens
+            summary.token_usage.output_tokens += u.total_completion_tokens
+            summary.token_usage.cached_tokens += u.total_prompt_cached_tokens
+            summary.token_usage.total_tokens += u.total_tokens
+            summary.token_usage.total_cost += u.total_cost
 
-            print(f"\n--- Search complete: {search['title']} ---")
-            result = history.final_result()
-            if result:
-                print(f"Agent summary: {result[:500]}")
-    finally:
-        await browser.stop()
+        print(f"\n--- Search complete: {search['title']} ---")
+        result = history.final_result()
+        if result:
+            print(f"Agent summary: {result[:500]}")
 
     summary.run_finished = datetime.now().isoformat()
 
