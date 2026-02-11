@@ -36,25 +36,12 @@ def build_llm() -> BaseChatModel:
         )
 
     if provider == "google":
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        from browser_use.llm.google import ChatGoogle
 
-        # browser_use 0.11.9 expects its own BaseChatModel protocol with
-        # provider, model_name, and name attrs, and monkey-patches ainvoke
-        # for token tracking.  ChatGoogleGenerativeAI (Pydantic extra='ignore')
-        # has none of these and blocks setattr.  Subclass to bridge the gap.
-        class _PatchableChatGoogle(ChatGoogleGenerativeAI):
-            model_config = {"extra": "allow"}
-            provider: str = "google"
-            model_name: str = ""
-
-        def _init_patchable(model_str: str, temperature: float) -> _PatchableChatGoogle:
-            llm = _PatchableChatGoogle(model=model_str, temperature=temperature)
-            # model_name must mirror model; set after init since model is
-            # validated during __init__.
-            object.__setattr__(llm, "model_name", llm.model)
-            return llm
-
-        return _init_patchable(LLM_MODEL, LLM_TEMPERATURE)
+        return ChatGoogle(
+            model=LLM_MODEL,
+            temperature=LLM_TEMPERATURE,
+        )
 
     if provider == "ollama":
         from langchain_ollama import ChatOllama
