@@ -20,7 +20,12 @@ from src.models.schemas import (
     JobListing,
     SkipReason,
 )
-from src.utils.output import save_cover_letter, save_record
+from src.utils.output import (
+    flush_run_summary,
+    get_run_summary,
+    save_cover_letter,
+    save_record,
+)
 
 controller = Controller()
 
@@ -111,6 +116,15 @@ def save_application(
     )
     log_path = save_record(record)
     cl_path = save_cover_letter(record)
+
+    # Update the active run summary in real-time
+    summary = get_run_summary()
+    if summary is not None:
+        summary.applications.append(record)
+        summary.total_applied += 1
+        summary.total_reviewed += 1
+        flush_run_summary()
+
     msg = f"Application saved to {log_path}"
     if cl_path:
         msg += f" | Cover letter saved to {cl_path}"
@@ -139,6 +153,15 @@ def save_skipped_job(
         notes=notes,
     )
     save_record(record)
+
+    # Update the active run summary in real-time
+    summary = get_run_summary()
+    if summary is not None:
+        summary.applications.append(record)
+        summary.total_skipped += 1
+        summary.total_reviewed += 1
+        flush_run_summary()
+
     return ActionResult(
         extracted_content=f"Skipped: {job_title} at {company} ({skip_reason.value})"
     )

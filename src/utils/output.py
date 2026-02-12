@@ -3,6 +3,10 @@ Output manager — persists application records to disk.
 
 Supports JSON and CSV formats. Each run appends to a single
 rolling log file so you never lose historical data.
+
+The module also holds the *active* ``RunSummary`` for the current
+run so that agent actions can update it in real-time and flush
+incremental state to disk after every meaningful event.
 """
 
 from __future__ import annotations
@@ -14,6 +18,11 @@ from pathlib import Path
 
 from config.settings import OUTPUT_DIR, OUTPUT_FORMAT
 from src.models.schemas import ApplicationRecord, ApplicationStatus, RunSummary
+
+# ── Runtime context (active run) ────────────────────────────────────
+
+_current_summary: RunSummary | None = None
+_current_summary_path: Path | None = None
 
 
 def _ensure_output_dir() -> Path:
@@ -132,6 +141,68 @@ def save_run_summary(summary: RunSummary) -> Path:
     """Save the full run summary (includes all application records)."""
     path = _ensure_output_dir() / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     path.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
+    return path
+
+
+# ── Incremental run-summary management ──────────────────────────────
+
+
+def init_run_summary() -> RunSummary:
+    """Create a new ``RunSummary``, persist the initial state, and return it."""
+    global _current_summary, _current_summary_path
+    _current_summary = RunSummary()
+    _current_summary_path = (
+        _ensure_output_dir() / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
+    flush_run_summary()
+    return _current_summary
+
+
+def get_run_summary() -> RunSummary | None:
+    """Return the active ``RunSummary`` (or *None* outside a run)."""
+    return _current_summary
+
+
+def flush_run_summary() -> Path | None:
+    """Write the current run summary to disk (incremental save)."""
+    if _current_summary is None or _current_summary_path is None:
+        return None
+    _current_summary_path.write_text(
+        _current_summary.model_dump_json(indent=2), encoding="utf-8"
+    )
+    return _current_summary_path
+
+
+def accumulate_tokens(usage: object) -> None:
+    """Add token counts from a browser-use history usage object.
+
+    Flushes the updated summary to disk so the output file always
+    reflects the latest token totals.
+    """
+    if _current_summary is None or usage is None:
+        return
+    _current_summary.token_usage.input_tokens += usage.total_prompt_tokens
+    _current_summary.token_usage.output_tokens += usage.total_completion_tokens
+    _current_summary.token_usage.cached_tokens += usage.total_prompt_cached_tokens
+    _current_summary.token_usage.total_tokens += usage.total_tokens
+    _current_summary.token_usage.total_cost += usage.total_cost
+    flush_run_summary()
+
+
+def finalize_run_summary() -> Path:
+    """Mark the run finished and perform the final flush.
+
+    Returns the path to the saved file and clears the module-level
+    state so a fresh run can start later.
+    """
+    global _current_summary, _current_summary_path
+    if _current_summary is None or _current_summary_path is None:
+        raise RuntimeError("No active run summary to finalize")
+    _current_summary.run_finished = datetime.now().isoformat()
+    flush_run_summary()
+    path = _current_summary_path
+    _current_summary = None
+    _current_summary_path = None
     return path
 
 

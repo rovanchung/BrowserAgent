@@ -24,7 +24,12 @@ from config.settings import (
 from src.agent.actions import controller
 from src.models.schemas import RunSummary, TokenUsage
 from src.utils.cover_letter import generate_cover_letter
-from src.utils.output import load_applied_urls, save_run_summary
+from src.utils.output import (
+    accumulate_tokens,
+    finalize_run_summary,
+    init_run_summary,
+    load_applied_urls,
+)
 
 
 def _browser_kwargs() -> dict:
@@ -174,7 +179,7 @@ async def run_single_apply(
     -------
     RunSummary with stats for the single application.
     """
-    summary = RunSummary()
+    summary = init_run_summary()
 
     print(f"\n{'='*60}")
     print(f"  Applying to: {url}")
@@ -194,19 +199,12 @@ async def run_single_apply(
 
     history = await agent.run(max_steps=MAX_AGENT_STEPS)
 
-    if history.usage:
-        u = history.usage
-        summary.token_usage.input_tokens += u.total_prompt_tokens
-        summary.token_usage.output_tokens += u.total_completion_tokens
-        summary.token_usage.cached_tokens += u.total_prompt_cached_tokens
-        summary.token_usage.total_tokens += u.total_tokens
-        summary.token_usage.total_cost += u.total_cost
+    # Accumulate token usage and flush to disk
+    accumulate_tokens(history.usage)
 
     result = history.final_result()
     if result:
         print(f"\nAgent summary: {result[:500]}")
-
-    summary.run_finished = datetime.now().isoformat()
 
     t = summary.token_usage
     print(f"\n{'─'*40}")
@@ -219,7 +217,7 @@ async def run_single_apply(
     print(f"  Cost:    ${t.total_cost:.4f}")
     print(f"{'─'*40}")
 
-    summary_path = save_run_summary(summary)
+    summary_path = finalize_run_summary()
     print(f"\nRun summary saved to {summary_path}")
 
     return summary
@@ -244,7 +242,7 @@ async def run_job_search(
     RunSummary with aggregate stats.
     """
     searches = searches or job_titles.SEARCHES
-    summary = RunSummary()
+    summary = init_run_summary()
     browser_kw = _browser_kwargs()
 
     for search in searches:
@@ -266,21 +264,13 @@ async def run_job_search(
 
         history = await agent.run(max_steps=MAX_AGENT_STEPS)
 
-        # Accumulate token usage
-        if history.usage:
-            u = history.usage
-            summary.token_usage.input_tokens += u.total_prompt_tokens
-            summary.token_usage.output_tokens += u.total_completion_tokens
-            summary.token_usage.cached_tokens += u.total_prompt_cached_tokens
-            summary.token_usage.total_tokens += u.total_tokens
-            summary.token_usage.total_cost += u.total_cost
+        # Accumulate token usage and flush to disk
+        accumulate_tokens(history.usage)
 
         print(f"\n--- Search complete: {search['title']} ---")
         result = history.final_result()
         if result:
             print(f"Agent summary: {result[:500]}")
-
-    summary.run_finished = datetime.now().isoformat()
 
     # Print token usage summary
     t = summary.token_usage
@@ -294,8 +284,8 @@ async def run_job_search(
     print(f"  Cost:    ${t.total_cost:.4f}")
     print(f"{'─'*40}")
 
-    # Save the run summary
-    summary_path = save_run_summary(summary)
+    # Finalize and save the run summary
+    summary_path = finalize_run_summary()
     print(f"\nRun summary saved to {summary_path}")
 
     return summary
