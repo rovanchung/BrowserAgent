@@ -62,6 +62,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Pause for human approval before submitting each application",
     )
+    parser.add_argument(
+        "--keep-alive",
+        action="store_true",
+        help="Keep the browser open after the agent finishes",
+    )
     return parser.parse_args()
 
 
@@ -156,11 +161,12 @@ async def main() -> None:
 
     if args.url:
         summary = await run_single_apply(
-            llm, args.url, review_before_submit=args.review
+            llm, args.url, keep_alive=args.keep_alive, review_before_submit=args.review
         )
     else:
         summary = await run_job_search(
             llm,
+            keep_alive=args.keep_alive,
             use_initial_actions=args.initial_actions,
             review_before_submit=args.review,
         )

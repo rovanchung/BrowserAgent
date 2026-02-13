@@ -340,6 +340,7 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 
 - **Start with `--dry-run`** to see the exact prompts the agent will use before spending API credits
 - **Use `--review`** on your first runs to verify the agent fills forms correctly before it submits
+- **Use `--keep-alive`** to keep your browser tabs open after everything is done
 - **Use `--initial-actions`** once you're comfortable — it skips LLM navigation and saves tokens
 - **Watch the first run** with the browser visible (`HEADLESS = False`) to see how the agent navigates and catch any issues
 - **Keep `MIN_SKILL_MATCH_RATIO` low** (0.2-0.3) if you want more applications, raise it (0.5+) to be selective

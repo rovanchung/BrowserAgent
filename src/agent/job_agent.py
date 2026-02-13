@@ -31,11 +31,13 @@ from src.utils.output import (
 )
 
 
-def _browser_kwargs() -> dict:
+def _browser_kwargs(*, keep_alive: bool = False) -> dict:
     """Return keyword arguments for constructing a Browser instance."""
     from pathlib import Path
 
     kwargs: dict = {"headless": HEADLESS}
+    if keep_alive:
+        kwargs["keep_alive"] = True
     if CHROME_PROFILE_PATH:
         profile_path = Path(CHROME_PROFILE_PATH)
         # Chrome expects user_data_dir to be the top-level data directory
@@ -238,6 +240,7 @@ async def run_single_apply(
     llm: BaseChatModel,
     url: str,
     *,
+    keep_alive: bool = False,
     review_before_submit: bool = False,
 ) -> RunSummary:
     """Apply to a single job posting by URL.
@@ -268,7 +271,7 @@ async def run_single_apply(
     agent = Agent(
         task=task,
         llm=llm,
-        browser=Browser(**_browser_kwargs()),
+        browser=Browser(**_browser_kwargs(keep_alive=keep_alive)),
         controller=controller,
     )
 
@@ -302,6 +305,7 @@ async def run_job_search(
     llm: BaseChatModel,
     searches: list[dict] | None = None,
     *,
+    keep_alive: bool = False,
     use_initial_actions: bool = False,
     review_before_submit: bool = False,
 ) -> RunSummary:
@@ -326,7 +330,7 @@ async def run_job_search(
     set_llm(llm)
     searches = searches or job_titles.SEARCHES
     summary = init_run_summary()
-    browser_kw = _browser_kwargs()
+    browser_kw = _browser_kwargs(keep_alive=keep_alive)
 
     for search in searches:
         print(f"\n{'='*60}")
