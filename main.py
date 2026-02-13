@@ -51,6 +51,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the task prompt and exit without running the browser",
     )
+    parser.add_argument(
+        "--initial-actions",
+        action="store_true",
+        help="Use browser-use initial_actions to navigate directly to search "
+        "results (skips LLM navigation steps, saves tokens)",
+    )
     return parser.parse_args()
 
 
@@ -102,7 +108,9 @@ def _check_configs() -> None:
     if missing:
         print("ERROR: Missing config files:")
         for f in missing:
-            print(f"  - config/{f}  (copy from config/{f.replace('.py', '.example.py')})")
+            print(
+                f"  - config/{f}  (copy from config/{f.replace('.py', '.example.py')})"
+            )
         print("\nSee README.md for setup instructions.")
         sys.exit(1)
 
@@ -115,7 +123,12 @@ async def main() -> None:
     # Now import everything that depends on settings
     from config import job_titles
     from config.settings import RESUME_PATH
-    from src.agent.job_agent import run_job_search, run_single_apply, _build_task_prompt, _build_apply_prompt
+    from src.agent.job_agent import (
+        run_job_search,
+        run_single_apply,
+        _build_task_prompt,
+        _build_apply_prompt,
+    )
     from src.agent.llm import build_llm
 
     _check_prerequisites()
@@ -139,7 +152,7 @@ async def main() -> None:
     if args.url:
         summary = await run_single_apply(llm, args.url)
     else:
-        summary = await run_job_search(llm)
+        summary = await run_job_search(llm, use_initial_actions=args.initial_actions)
 
     print("\n" + "=" * 60)
     print("  Run Complete")

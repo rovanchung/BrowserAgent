@@ -80,12 +80,73 @@ def _build_linkedin_search_url(search: dict) -> str:
     return "https://www.linkedin.com/jobs/search/?" + urlencode(params)
 
 
-def _build_task_prompt(search: dict) -> str:
+# ── Initial actions builders (one per job board) ─────────────────────
+# Each builder returns a list of browser-use action dicts for that board.
+# Add new boards by adding a function and registering it in the map.
+
+_INITIAL_ACTIONS_BUILDERS: dict[str, callable] = {}
+
+
+def _linkedin_initial_actions(search: dict) -> list[dict]:
+    url = _build_linkedin_search_url(search)
+    return [{"navigate": {"url": url, "new_tab": False}}]
+
+
+_INITIAL_ACTIONS_BUILDERS["linkedin"] = _linkedin_initial_actions
+
+
+def _build_initial_actions(search: dict) -> list[dict] | None:
+    """Return initial_actions for the current job board, or None if unsupported."""
+    board = job_titles.JOB_BOARDS[0] if job_titles.JOB_BOARDS else "linkedin"
+    builder = _INITIAL_ACTIONS_BUILDERS.get(board)
+    if builder:
+        return builder(search)
+    return None
+
+
+def _build_task_prompt(search: dict, *, use_initial_actions: bool = False) -> str:
     """Compose the natural-language task prompt for one search."""
+
+    board = job_titles.JOB_BOARDS[0] if job_titles.JOB_BOARDS else "linkedin"
+    board_url = {
+        "linkedin": "https://www.linkedin.com/jobs",
+        "indeed": "https://www.indeed.com",
+    }.get(board, "https://www.linkedin.com/jobs")
 
     max_apply = job_titles.MAX_APPLICATIONS_PER_RUN
     max_review = job_titles.MAX_LISTINGS_TO_REVIEW
     skill_ratio = job_titles.MIN_SKILL_MATCH_RATIO
+
+    if use_initial_actions:
+        step2 = f"""\
+## Step 2 — Search results
+The browser has already navigated to the job board with the correct search
+filters applied. You should now be on the search results page for
+"{search['title']}" in "{search['location']}". Proceed directly to
+reviewing the listings below."""
+    else:
+        date_filter = {
+            "past_24h": "Filter by 'Past 24 hours'.",
+            "past_week": "Filter by 'Past week'.",
+            "past_month": "Filter by 'Past month'.",
+            "any": "Do not filter by date.",
+        }.get(job_titles.DATE_POSTED, "")
+        exp_filter = (
+            f"Filter by experience level: {job_titles.EXPERIENCE_LEVEL}."
+            if job_titles.EXPERIENCE_LEVEL != "any"
+            else ""
+        )
+        remote_filter = (
+            "Filter for remote jobs only." if search.get("remote_only") else ""
+        )
+        step2 = f"""\
+## Step 2 — Search for jobs
+1. Navigate to {board_url}
+2. Search for: "{search['title']}"
+3. Location: "{search['location']}"
+4. {date_filter}
+5. {exp_filter}
+6. {remote_filter}"""
 
     return f"""\
 You are an autonomous job application assistant.
@@ -98,11 +159,7 @@ Search for jobs and apply to every qualified position on behalf of the candidate
 2. Call the `get_profile` action to load personal info and preferences.
    Keep this data in memory for filling forms.
 
-## Step 2 — Search results
-The browser has already navigated to LinkedIn with the correct search
-filters applied. You should now be on the search results page for
-"{search['title']}" in "{search['location']}". Proceed directly to
-reviewing the listings below.
+{step2}
 
 ## Step 3 — Review listings (up to {max_review})
 For each job listing:
@@ -237,6 +294,8 @@ async def run_single_apply(
 async def run_job_search(
     llm: BaseChatModel,
     searches: list[dict] | None = None,
+    *,
+    use_initial_actions: bool = False,
 ) -> RunSummary:
     """Run the full job-search-and-apply pipeline.
 
@@ -247,6 +306,10 @@ async def run_job_search(
     searches:
         Override the search list from config.  Defaults to
         ``job_titles.SEARCHES``.
+    use_initial_actions:
+        When *True*, navigate to the search results page via browser-use
+        ``initial_actions`` instead of letting the LLM handle it.  Saves
+        tokens but requires a supported job board (currently LinkedIn).
 
     Returns
     -------
@@ -262,21 +325,26 @@ async def run_job_search(
         print(f"  Searching: {search['title']} — {search['location']}")
         print(f"{'='*60}\n")
 
-        task = _build_task_prompt(search)
-        search_url = _build_linkedin_search_url(search)
+        initial_actions = (
+            _build_initial_actions(search) if use_initial_actions else None
+        )
+        task = _build_task_prompt(
+            search, use_initial_actions=initial_actions is not None
+        )
 
         # Each Agent gets its own Browser so its lifecycle (start/kill)
         # is self-contained — browser_use 0.11.x kills the browser
         # session when Agent.run() finishes.
-        agent = Agent(
+        agent_kwargs: dict = dict(
             task=task,
             llm=llm,
             browser=Browser(**browser_kw),
             controller=controller,
-            initial_actions=[
-                {"navigate": {"url": search_url, "new_tab": False}},
-            ],
         )
+        if initial_actions:
+            agent_kwargs["initial_actions"] = initial_actions
+
+        agent = Agent(**agent_kwargs)
 
         history = await agent.run(max_steps=MAX_AGENT_STEPS)
 
