@@ -104,7 +104,12 @@ def _build_initial_actions(search: dict) -> list[dict] | None:
     return None
 
 
-def _build_task_prompt(search: dict, *, use_initial_actions: bool = False) -> str:
+def _build_task_prompt(
+    search: dict,
+    *,
+    use_initial_actions: bool = False,
+    review_before_submit: bool = False,
+) -> str:
     """Compose the natural-language task prompt for one search."""
 
     board = job_titles.JOB_BOARDS[0] if job_titles.JOB_BOARDS else "linkedin"
@@ -175,7 +180,7 @@ For each qualified job:
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
 4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
 5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  Use the returned text as the cover letter.  Add it to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
-6. Review the filled form for accuracy, then submit.
+6. Review the filled form for accuracy.{"  Then call `ask_human` with a summary of the job (title, company, URL) and all your filled answers so the human can approve or reject before submitting.  If rejected, call `save_skipped_job` with reason 'human_rejected' and move on." if review_before_submit else ""}  Then submit.
 7. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
 8. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.  If the human skips, call `save_skipped_job` with the appropriate reason and move on.
 
@@ -190,7 +195,7 @@ For each qualified job:
 """
 
 
-def _build_apply_prompt(url: str) -> str:
+def _build_apply_prompt(url: str, *, review_before_submit: bool = False) -> str:
     """Compose a task prompt to apply directly to a single job posting URL."""
     return f"""\
 You are an autonomous job application assistant.
@@ -217,7 +222,7 @@ Apply to a specific job posting on behalf of the candidate.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
 4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
 5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  Use the returned text as the cover letter.  Add it to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
-6. Review the filled form for accuracy, then submit.
+6. Review the filled form for accuracy.{"  Then call `ask_human` with a summary of the job (title, company, URL) and all your filled answers so the human can approve or reject before submitting.  If rejected, call `save_skipped_job` with reason 'human_rejected' and stop." if review_before_submit else ""}  Then submit.
 7. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
 8. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.
 
@@ -232,6 +237,8 @@ Apply to a specific job posting on behalf of the candidate.
 async def run_single_apply(
     llm: BaseChatModel,
     url: str,
+    *,
+    review_before_submit: bool = False,
 ) -> RunSummary:
     """Apply to a single job posting by URL.
 
@@ -253,7 +260,7 @@ async def run_single_apply(
     print(f"  Applying to: {url}")
     print(f"{'='*60}\n")
 
-    task = _build_apply_prompt(url)
+    task = _build_apply_prompt(url, review_before_submit=review_before_submit)
 
     # Each Agent gets its own Browser so its lifecycle (start/kill) is
     # self-contained — browser_use 0.11.x kills the browser session when
@@ -296,6 +303,7 @@ async def run_job_search(
     searches: list[dict] | None = None,
     *,
     use_initial_actions: bool = False,
+    review_before_submit: bool = False,
 ) -> RunSummary:
     """Run the full job-search-and-apply pipeline.
 
@@ -329,7 +337,9 @@ async def run_job_search(
             _build_initial_actions(search) if use_initial_actions else None
         )
         task = _build_task_prompt(
-            search, use_initial_actions=initial_actions is not None
+            search,
+            use_initial_actions=initial_actions is not None,
+            review_before_submit=review_before_submit,
         )
 
         # Each Agent gets its own Browser so its lifecycle (start/kill)

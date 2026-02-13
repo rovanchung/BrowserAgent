@@ -57,6 +57,11 @@ def parse_args() -> argparse.Namespace:
         help="Use browser-use initial_actions to navigate directly to search "
         "results (skips LLM navigation steps, saves tokens)",
     )
+    parser.add_argument(
+        "--review",
+        action="store_true",
+        help="Pause for human approval before submitting each application",
+    )
     return parser.parse_args()
 
 
@@ -150,9 +155,15 @@ async def main() -> None:
     llm = build_llm()
 
     if args.url:
-        summary = await run_single_apply(llm, args.url)
+        summary = await run_single_apply(
+            llm, args.url, review_before_submit=args.review
+        )
     else:
-        summary = await run_job_search(llm, use_initial_actions=args.initial_actions)
+        summary = await run_job_search(
+            llm,
+            use_initial_actions=args.initial_actions,
+            review_before_submit=args.review,
+        )
 
     print("\n" + "=" * 60)
     print("  Run Complete")
