@@ -20,12 +20,23 @@ from src.models.schemas import (
     JobListing,
     SkipReason,
 )
+from src.utils.cover_letter import generate_cover_letter
 from src.utils.output import (
     flush_run_summary,
     get_run_summary,
-    save_cover_letter,
+    save_cover_letter_file,
     save_record,
 )
+
+# Module-level LLM reference, set by job_agent before running.
+_llm = None
+
+
+def set_llm(llm) -> None:
+    """Store the LLM so actions can use it for cover-letter generation."""
+    global _llm
+    _llm = llm
+
 
 controller = Controller()
 
@@ -67,23 +78,30 @@ def get_profile() -> ActionResult:
 
 
 @controller.action(
-    "Look up the answer to a screening question using the candidate profile. "
-    "Pass the full question text and get back the profile data to answer it."
+    "Look up the answer to a screening question using the candidate profile and resume. "
+    "Pass the full question text and get back the profile and resume data to answer it."
 )
 def answer_screening_question(question: str) -> ActionResult:
-    """Return the full profile so the agent can answer any screening question."""
+    """Return the profile and resume so the agent can answer any screening question."""
+    resume_text = ""
+    if RESUME_PATH.exists():
+        resume_text = RESUME_PATH.read_text(encoding="utf-8")
+
     return ActionResult(
         extracted_content=(
-            f"Answer the following screening question using the candidate profile below.\n"
+            f"Answer the following screening question using the candidate profile and resume below.\n"
             f"Question: {question}\n\n"
-            f"Profile:\n{json.dumps(PROFILE, indent=2)}"
+            f"Profile:\n{json.dumps(PROFILE, indent=2)}\n\n"
+            f"Resume:\n{resume_text}"
         )
     )
 
 
 @controller.action(
     "Save a successful job application. Call this after submitting an application. "
-    "Provide job_title, company, location, url, job_board, search_query, and cover_letter."
+    "Provide job_title, company, location, url, job_board, search_query, and "
+    "screening_answers (a JSON string mapping each question to its answer, "
+    "including the cover letter if one was generated)."
 )
 def save_application(
     job_title: str,
@@ -92,9 +110,14 @@ def save_application(
     url: str = "",
     job_board: str = "",
     search_query: str = "",
-    cover_letter: str = "",
+    screening_answers: str = "{}",
 ) -> ActionResult:
     """Persist a successful application to the output log."""
+    try:
+        answers = json.loads(screening_answers)
+    except (json.JSONDecodeError, TypeError):
+        answers = {}
+
     record = ApplicationRecord(
         job=JobListing(
             title=job_title,
@@ -105,10 +128,10 @@ def save_application(
             search_query=search_query,
         ),
         status=ApplicationStatus.APPLIED,
-        cover_letter=cover_letter,
+        screening_answers=answers,
     )
     log_path = save_record(record)
-    cl_path = save_cover_letter(record)
+    cl_path = save_cover_letter_file(record)
 
     # Update the active run summary in real-time
     summary = get_run_summary()
@@ -199,3 +222,34 @@ def ask_human(message: str) -> ActionResult:
     if not user_input:
         return ActionResult(extracted_content="User skipped. Move on to the next task.")
     return ActionResult(extracted_content=f"User responded: {user_input}")
+
+
+@controller.action(
+    "Generate a tailored cover letter for a job. Provide the job_title, company, "
+    "location, and the full job_description. Returns the cover letter text."
+)
+def make_cover_letter(
+    job_title: str,
+    company: str,
+    location: str,
+    job_description: str,
+) -> ActionResult:
+    """Use the dedicated cover-letter generator to produce a tailored letter."""
+    if _llm is None:
+        return ActionResult(
+            extracted_content="ERROR: LLM not available for cover letter generation.",
+            error="LLM not configured in actions module.",
+        )
+
+    resume_text = ""
+    if RESUME_PATH.exists():
+        resume_text = RESUME_PATH.read_text(encoding="utf-8")
+
+    job = JobListing(
+        title=job_title,
+        company=company,
+        location=location,
+        description=job_description,
+    )
+    letter = generate_cover_letter(_llm, job, resume_text)
+    return ActionResult(extracted_content=letter)

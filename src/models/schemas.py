@@ -58,7 +58,7 @@ class ApplicationRecord(BaseModel):
     job: JobListing
     status: ApplicationStatus
     skip_reason: SkipReason | None = None
-    cover_letter: str = ""
+    screening_answers: dict[str, str] = Field(default_factory=dict)
     applied_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     notes: str = ""
 

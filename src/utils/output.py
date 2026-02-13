@@ -67,7 +67,7 @@ _CSV_COLUMNS = [
     "salary_range",
     "job_board",
     "search_query",
-    "cover_letter",
+    "screening_answers",
     "notes",
 ]
 
@@ -91,7 +91,7 @@ def save_record_csv(record: ApplicationRecord) -> None:
         "salary_range": record.job.salary_range,
         "job_board": record.job.job_board,
         "search_query": record.job.search_query,
-        "cover_letter": record.cover_letter.replace("\n", "\\n"),
+        "screening_answers": json.dumps(record.screening_answers, ensure_ascii=False),
         "notes": record.notes,
     }
 
@@ -115,9 +115,18 @@ def save_record(record: ApplicationRecord) -> Path:
         return _json_path()
 
 
-def save_cover_letter(record: ApplicationRecord) -> Path | None:
+def _find_cover_letter(answers: dict[str, str]) -> str:
+    """Extract the cover letter value from screening_answers, if present."""
+    for key, value in answers.items():
+        if "cover letter" in key.lower():
+            return value
+    return ""
+
+
+def save_cover_letter_file(record: ApplicationRecord) -> Path | None:
     """Save a cover letter as a standalone text file alongside the log."""
-    if not record.cover_letter:
+    cover_letter = _find_cover_letter(record.screening_answers)
+    if not cover_letter:
         return None
 
     cl_dir = _ensure_output_dir() / "cover_letters"
@@ -133,7 +142,7 @@ def save_cover_letter(record: ApplicationRecord) -> Path | None:
     filename = f"{safe_company}_{safe_title}_{timestamp}.txt"
 
     path = cl_dir / filename
-    path.write_text(record.cover_letter, encoding="utf-8")
+    path.write_text(cover_letter, encoding="utf-8")
     return path
 
 

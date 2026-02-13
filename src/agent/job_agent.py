@@ -17,14 +17,12 @@ from config import job_titles
 from config.settings import (
     ACTION_DELAY,
     CHROME_PROFILE_PATH,
-    GENERATE_COVER_LETTER,
     HEADLESS,
     MAX_AGENT_STEPS,
     RESUME_PATH,
 )
-from src.agent.actions import controller
+from src.agent.actions import controller, set_llm
 from src.models.schemas import RunSummary, TokenUsage
-from src.utils.cover_letter import generate_cover_letter
 from src.utils.output import (
     accumulate_tokens,
     finalize_run_summary,
@@ -116,17 +114,18 @@ For each job listing:
 ## Step 4 — Apply (up to {max_apply} successful applications)
 For each qualified job:
 1. Click "Easy Apply" or the application button.
-2. Fill all form fields using the profile data.  For screening questions, call `answer_screening_question` with the full question text.
-3. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
-4. If the application asks for a cover letter, write a brief, tailored cover letter using the job description and the candidate's resume.
-5. Review the filled form for accuracy, then submit.
-6. After submitting, call `save_application` with all job details and the cover letter text.
-7. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.  If the human skips, call `save_skipped_job` with the appropriate reason and move on.
+2. Fill all form fields using the profile data.  For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
+3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
+4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
+5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  Use the returned text as the cover letter.  Add it to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
+6. Review the filled form for accuracy, then submit.
+7. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
+8. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.  If the human skips, call `save_skipped_job` with the appropriate reason and move on.
 
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
-- When a form field doesn't match any profile data, leave it blank or call `ask_human`.
+- When a form field doesn't match any profile or resume data, leave it blank or call `ask_human`.
 - If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
 - After each successful application, count how many you've completed.  Stop after {max_apply} successful applications.
 - Be methodical: open each job in sequence, don't rush.
@@ -157,17 +156,18 @@ Apply to a specific job posting on behalf of the candidate.
 
 ## Step 4 — Apply
 1. Click "Easy Apply" or the application button.
-2. Fill all form fields using the profile data. For screening questions, call `answer_screening_question` with the full question text.
-3. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
-4. If the application asks for a cover letter, write a brief, tailored cover letter using the job description and the candidate's resume.
-5. Review the filled form for accuracy, then submit.
-6. After submitting, call `save_application` with all job details and the cover letter text.
-7. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.
+2. Fill all form fields using the profile data. For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
+3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
+4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
+5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  Use the returned text as the cover letter.  Add it to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
+6. Review the filled form for accuracy, then submit.
+7. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
+8. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.
 
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
-- When a form field doesn't match any profile data, leave it blank or call `ask_human`.
+- When a form field doesn't match any profile or resume data, leave it blank or call `ask_human`.
 - If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
 """
 
@@ -189,6 +189,7 @@ async def run_single_apply(
     -------
     RunSummary with stats for the single application.
     """
+    set_llm(llm)
     summary = init_run_summary()
 
     print(f"\n{'='*60}")
@@ -251,6 +252,7 @@ async def run_job_search(
     -------
     RunSummary with aggregate stats.
     """
+    set_llm(llm)
     searches = searches or job_titles.SEARCHES
     summary = init_run_summary()
     browser_kw = _browser_kwargs()
