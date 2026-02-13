@@ -7,7 +7,7 @@ from __future__ import annotations
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from config import profile
+from config.profile import PROFILE
 from src.models.schemas import JobListing
 
 _SYSTEM_PROMPT = """\
@@ -37,10 +37,10 @@ def generate_cover_letter(
 
     user_prompt = f"""\
 ## Candidate Profile
-Name: {profile.FIRST_NAME} {profile.LAST_NAME}
-Current role: {profile.CURRENT_TITLE} at {profile.CURRENT_COMPANY}
-Years of experience: {profile.YEARS_OF_EXPERIENCE}
-Key skills: {', '.join(profile.SKILLS)}
+Name: {PROFILE["first_name"]} {PROFILE["last_name"]}
+Current role: {PROFILE["current_title"]} at {PROFILE["current_company"]}
+Years of experience: {PROFILE["years_of_experience"]}
+Key skills: {', '.join(PROFILE["skills"])}
 
 ## Resume
 {resume_text}

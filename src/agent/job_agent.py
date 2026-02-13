@@ -12,7 +12,7 @@ from datetime import datetime
 from browser_use import Agent, Browser
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from config import job_titles, profile
+from config import job_titles
 from config.settings import (
     ACTION_DELAY,
     CHROME_PROFILE_PATH,

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from browser_use import ActionResult, Agent, Controller
 
-from config import profile
+from config.profile import PROFILE
 from config.settings import RESUME_PATH
 from src.models.schemas import (
     ApplicationRecord,
@@ -46,45 +46,22 @@ def read_resume() -> ActionResult:
 
 @controller.action("Get the candidate's personal profile for filling application forms")
 def get_profile() -> ActionResult:
-    """Return structured profile data the agent needs for form-filling."""
-    data = {
-        "first_name": profile.FIRST_NAME,
-        "last_name": profile.LAST_NAME,
-        "full_name": f"{profile.FIRST_NAME} {profile.LAST_NAME}",
-        "email": profile.EMAIL,
-        "phone": profile.PHONE,
-        "location": profile.LOCATION,
-        "linkedin": profile.LINKEDIN_URL,
-        "github": profile.GITHUB_URL,
-        "portfolio": profile.PORTFOLIO_URL,
-        "work_authorization": profile.WORK_AUTHORIZATION,
-        "requires_sponsorship": profile.REQUIRES_SPONSORSHIP,
-        "years_of_experience": profile.YEARS_OF_EXPERIENCE,
-        "current_title": profile.CURRENT_TITLE,
-        "current_company": profile.CURRENT_COMPANY,
-        "skills": profile.SKILLS,
-        "education": profile.EDUCATION,
-        "desired_salary": f"{profile.DESIRED_SALARY_MIN:,}+ {profile.SALARY_CURRENCY}",
-        "earliest_start_date": profile.EARLIEST_START_DATE,
-        "willing_to_relocate": profile.WILLING_TO_RELOCATE,
-        "open_to_remote": profile.OPEN_TO_REMOTE,
-    }
-    return ActionResult(extracted_content=json.dumps(data, indent=2))
+    """Return the full candidate profile as JSON."""
+    return ActionResult(extracted_content=json.dumps(PROFILE, indent=2))
 
 
 @controller.action(
-    "Look up the answer to a screening question using keyword matching. "
-    "Pass the full question text and get back the best-match answer."
+    "Look up the answer to a screening question using the candidate profile. "
+    "Pass the full question text and get back the profile data to answer it."
 )
 def answer_screening_question(question: str) -> ActionResult:
-    """Match a screening question against the configured keyword→answer map."""
-    question_lower = question.lower()
-    for keyword, answer in profile.QUESTION_ANSWERS.items():
-        if keyword.lower() in question_lower:
-            return ActionResult(extracted_content=f"Answer: {answer}")
+    """Return the full profile so the agent can answer any screening question."""
     return ActionResult(
-        extracted_content="No pre-configured answer found for this question. "
-        "Use your best judgment based on the candidate's profile and resume."
+        extracted_content=(
+            f"Answer the following screening question using the candidate profile below.\n"
+            f"Question: {question}\n\n"
+            f"Profile:\n{json.dumps(PROFILE, indent=2)}"
+        )
     )
 
 
@@ -173,7 +150,7 @@ def save_skipped_job(
 )
 def check_company(company_name: str) -> ActionResult:
     """Check the company against the user's block list."""
-    for blocked in profile.COMPANIES_TO_SKIP:
+    for blocked in PROFILE.get("companies_to_skip", []):
         if blocked.lower() in company_name.lower():
             return ActionResult(extracted_content="skip")
     return ActionResult(extracted_content="ok")
@@ -186,7 +163,7 @@ def check_company(company_name: str) -> ActionResult:
 def check_job_description(description: str) -> ActionResult:
     """Screen a job description against blocked keywords."""
     desc_lower = description.lower()
-    for kw in profile.KEYWORDS_TO_AVOID:
+    for kw in PROFILE.get("keywords_to_avoid", []):
         if kw.lower() in desc_lower:
             return ActionResult(
                 extracted_content=f"skip — matched blocked keyword: {kw}"
