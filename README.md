@@ -23,7 +23,7 @@ generates a cover letter, uploads resume, submits
 Everything logged to output/ (JSON/CSV + individual cover letter files)
 ```
 
-The agent uses your **keyword-to-answer map** in `config/profile.py` to handle screening questions deterministically — no hallucinated answers. When it hits something it can't handle (CAPTCHA, ambiguous question, login wall), it pauses and asks you.
+The agent reads your **profile dictionary** in `config/profile.py` and uses it — along with your resume — to answer screening questions. When it hits something it can't handle (CAPTCHA, ambiguous question, login wall), it pauses and asks you.
 
 ## Project Structure
 
@@ -143,40 +143,31 @@ Tips for the resume file:
 
 ### Step 5 — Fill in your profile
 
-Edit `config/profile.py` with your real information:
+Edit `config/profile.py` with your real information. The profile is a single `PROFILE` dictionary:
 
 ```python
-# ── Personal Information ──────────────────────────────
-FIRST_NAME = "Jane"
-LAST_NAME = "Doe"
-EMAIL = "jane.doe@email.com"
-PHONE = "+1-555-012-3456"
-LOCATION = "San Francisco, CA"
-LINKEDIN_URL = "https://linkedin.com/in/janedoe"
-# ...
-
-# ── Experience ────────────────────────────────────────
-YEARS_OF_EXPERIENCE = 6
-CURRENT_TITLE = "Senior Software Engineer"
-SKILLS = ["Python", "TypeScript", "AWS", "Kubernetes", ...]
-
-# ── Screening Question Auto-Answers ──────────────────
-# Keyword in question → your answer (first match wins)
-QUESTION_ANSWERS = {
-    "authorized to work": "Yes",
-    "years of experience": "6",
-    "willing to relocate": "No",
-    "salary expectation": "150,000-200,000 USD",
-    # ... add your own
+PROFILE: dict = {
+    # ── Personal Information ─────────────────────────────
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "email": "jane.doe@email.com",
+    "phone": "+1-555-012-3456",
+    "location": "San Francisco, CA",
+    "linkedin_url": "https://linkedin.com/in/janedoe",
+    # ── Work Authorization ───────────────────────────────
+    "work_authorization": "US Citizen",
+    "requires_sponsorship": False,
+    # ── Experience ───────────────────────────────────────
+    "years_of_experience": 6,
+    "current_title": "Senior Software Engineer",
+    "skills": ["Python", "TypeScript", "AWS", "Kubernetes"],
+    # ── Filters ──────────────────────────────────────────
+    "companies_to_skip": ["Current Employer Inc."],
+    "keywords_to_avoid": ["security clearance required"],
 }
-
-# ── Companies to Skip ────────────────────────────────
-COMPANIES_TO_SKIP = [
-    "Current Employer Inc.",
-]
 ```
 
-The `QUESTION_ANSWERS` dictionary is the most important part — it maps keyword patterns found in screening questions to your answers. The agent checks each question against these keywords (case-insensitive, first match wins) so your answers are always consistent and factual.
+The agent uses this profile — along with your resume — to fill forms and answer screening questions. See `config/profile.example.py` for the full template with all available fields.
 
 ### Step 6 — Configure your job searches
 
@@ -237,14 +228,27 @@ python main.py --provider anthropic --model claude-sonnet-4-5-20250929
 
 # Dry run — prints the task prompts without opening a browser
 python main.py --dry-run
+
+# Apply to a single job posting URL
+python main.py --url https://linkedin.com/jobs/view/123456
+
+# Fast navigation — skip LLM search steps by navigating directly to
+# filtered results via URL params (currently supports LinkedIn)
+python main.py --initial-actions
+
+# Review mode — pause for your approval before each application is submitted
+python main.py --review
+
+# Combine flags as needed
+python main.py --initial-actions --review --headless
 ```
 
 The agent will:
 1. Read your resume and profile
-2. Navigate to the job board
+2. Navigate to the job board (or jump straight to filtered results with `--initial-actions`)
 3. Run each search from `config/job_titles.py`
 4. For each listing: check company block list, check description for blocked keywords, evaluate skill match
-5. For qualified jobs: fill the application, answer screening questions, generate a cover letter, submit
+5. For qualified jobs: fill the application, answer screening questions, generate a cover letter, submit (or pause for your approval with `--review`)
 6. Log everything to `output/`
 
 ## Output
@@ -303,8 +307,8 @@ The agent has 8 custom actions beyond standard browser interaction:
 | Action | What it does |
 |--------|-------------|
 | `read_resume` | Loads `resume/resume.md` into the agent's context |
-| `get_profile` | Returns structured profile data (name, email, skills, etc.) |
-| `answer_screening_question` | Keyword-matches a question to your pre-configured answer |
+| `get_profile` | Returns the full `PROFILE` dictionary as JSON |
+| `answer_screening_question` | Returns the profile and resume so the agent can answer any screening question |
 | `save_application` | Logs a successful application + cover letter to output |
 | `save_skipped_job` | Logs a skipped job with the reason (not qualified, blocked, etc.) |
 | `check_company` | Checks a company name against your block list |
@@ -316,7 +320,7 @@ The agent has 8 custom actions beyond standard browser interaction:
 | File | What to edit | Key fields |
 |------|-------------|------------|
 | `.env` | API keys, LLM provider | `OPENAI_API_KEY`, `LLM_PROVIDER`, `CHROME_PROFILE_PATH` |
-| `config/profile.py` | Your identity (copy from `profile.example.py`) | Name, email, phone, skills, education, `QUESTION_ANSWERS`, `COMPANIES_TO_SKIP` |
+| `config/profile.py` | Your identity (copy from `profile.example.py`) | `PROFILE` dict: name, email, phone, skills, education, `companies_to_skip`, `keywords_to_avoid` |
 | `config/job_titles.py` | What to search for (copy from `job_titles.example.py`) | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `MAX_APPLICATIONS_PER_RUN` |
 | `config/settings.py` | Agent behavior (copy from `settings.example.py`) | `HEADLESS`, `MAX_AGENT_STEPS`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
 | `resume/resume.md` | Your resume | Plain text, no formatting required |
@@ -335,9 +339,11 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 ## Tips
 
 - **Start with `--dry-run`** to see the exact prompts the agent will use before spending API credits
+- **Use `--review`** on your first runs to verify the agent fills forms correctly before it submits
+- **Use `--initial-actions`** once you're comfortable — it skips LLM navigation and saves tokens
 - **Watch the first run** with the browser visible (`HEADLESS = False`) to see how the agent navigates and catch any issues
 - **Keep `MIN_SKILL_MATCH_RATIO` low** (0.2-0.3) if you want more applications, raise it (0.5+) to be selective
-- **Add more `QUESTION_ANSWERS`** as you discover new screening questions — the more you add, the fewer times the agent has to guess
+- **Fill in your profile thoroughly** — the more data the agent has, the better it answers screening questions
 - **Use a Chrome profile** with saved logins to avoid authentication issues entirely
 - **Local models** (Ollama) work but have noticeably lower success rates on complex multi-page forms — use 70B+ parameter models for best results
 
