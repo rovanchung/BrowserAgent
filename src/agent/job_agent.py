@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+from urllib.parse import urlencode
 
 from browser_use import Agent, Browser
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -51,29 +52,38 @@ def _browser_kwargs() -> dict:
     return kwargs
 
 
+def _build_linkedin_search_url(search: dict) -> str:
+    """Construct a LinkedIn Jobs search URL with all filters as query params."""
+    params: dict[str, str] = {
+        "keywords": search["title"],
+        "location": search["location"],
+    }
+    date_map = {
+        "past_24h": "r86400",
+        "past_week": "r604800",
+        "past_month": "r2592000",
+    }
+    if job_titles.DATE_POSTED in date_map:
+        params["f_TPR"] = date_map[job_titles.DATE_POSTED]
+
+    exp_map = {
+        "entry": "2",
+        "associate": "3",
+        "mid_senior": "4",
+        "director": "5",
+        "executive": "6",
+    }
+    if job_titles.EXPERIENCE_LEVEL in exp_map:
+        params["f_E"] = exp_map[job_titles.EXPERIENCE_LEVEL]
+
+    if search.get("remote_only"):
+        params["f_WT"] = "2"
+
+    return "https://www.linkedin.com/jobs/search/?" + urlencode(params)
+
+
 def _build_task_prompt(search: dict) -> str:
     """Compose the natural-language task prompt for one search."""
-
-    board = job_titles.JOB_BOARDS[0] if job_titles.JOB_BOARDS else "linkedin"
-    board_url = {
-        "linkedin": "https://www.linkedin.com/jobs",
-        "indeed": "https://www.indeed.com",
-    }.get(board, "https://www.linkedin.com/jobs")
-
-    date_filter_instruction = {
-        "past_24h": "Filter by 'Past 24 hours'.",
-        "past_week": "Filter by 'Past week'.",
-        "past_month": "Filter by 'Past month'.",
-        "any": "Do not filter by date.",
-    }.get(job_titles.DATE_POSTED, "")
-
-    exp_instruction = ""
-    if job_titles.EXPERIENCE_LEVEL != "any":
-        exp_instruction = f"Filter by experience level: {job_titles.EXPERIENCE_LEVEL}."
-
-    remote_instruction = ""
-    if search.get("remote_only"):
-        remote_instruction = "Filter for remote jobs only."
 
     max_apply = job_titles.MAX_APPLICATIONS_PER_RUN
     max_review = job_titles.MAX_LISTINGS_TO_REVIEW
@@ -90,13 +100,11 @@ Search for jobs and apply to every qualified position on behalf of the candidate
 2. Call the `get_profile` action to load personal info and preferences.
    Keep this data in memory for filling forms.
 
-## Step 2 — Search for jobs
-1. Navigate to {board_url}
-2. Search for: "{search['title']}"
-3. Location: "{search['location']}"
-4. {date_filter_instruction}
-5. {exp_instruction}
-6. {remote_instruction}
+## Step 2 — Search results
+The browser has already navigated to LinkedIn with the correct search
+filters applied. You should now be on the search results page for
+"{search['title']}" in "{search['location']}". Proceed directly to
+reviewing the listings below.
 
 ## Step 3 — Review listings (up to {max_review})
 For each job listing:
@@ -251,6 +259,7 @@ async def run_job_search(
         print(f"{'='*60}\n")
 
         task = _build_task_prompt(search)
+        search_url = _build_linkedin_search_url(search)
 
         # Each Agent gets its own Browser so its lifecycle (start/kill)
         # is self-contained — browser_use 0.11.x kills the browser
@@ -260,6 +269,9 @@ async def run_job_search(
             llm=llm,
             browser=Browser(**browser_kw),
             controller=controller,
+            initial_actions=[
+                {"navigate": {"url": search_url, "new_tab": False}},
+            ],
         )
 
         history = await agent.run(max_steps=MAX_AGENT_STEPS)
