@@ -94,8 +94,22 @@ def _print_banner() -> None:
     print()
 
 
+def _check_configs() -> None:
+    """Ensure config files have been copied from their .example templates."""
+    config_dir = Path(__file__).resolve().parent / "config"
+    required = ["profile.py", "job_titles.py", "settings.py"]
+    missing = [f for f in required if not (config_dir / f).exists()]
+    if missing:
+        print("ERROR: Missing config files:")
+        for f in missing:
+            print(f"  - config/{f}  (copy from config/{f.replace('.py', '.example.py')})")
+        print("\nSee README.md for setup instructions.")
+        sys.exit(1)
+
+
 async def main() -> None:
     args = parse_args()
+    _check_configs()
     _apply_overrides(args)
 
     # Now import everything that depends on settings

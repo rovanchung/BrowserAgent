@@ -34,9 +34,9 @@ BrowserAgent/
 ├── requirements.txt
 │
 ├── config/
-│   ├── profile.py                   # Personal info, Q&A auto-answers, skip lists
-│   ├── job_titles.py                # Target roles, locations, search filters
-│   └── settings.py                  # LLM provider, browser, output settings
+│   ├── profile.example.py           # Template — copy to profile.py and fill in
+│   ├── job_titles.example.py        # Template — copy to job_titles.py and customize
+│   └── settings.example.py          # Template — copy to settings.py and adjust
 │
 ├── resume/
 │   └── resume.md                   # Your resume (plain text)
@@ -117,7 +117,17 @@ LLM_MODEL=llama3.1:70b
 ```
 Make sure Ollama is running (`ollama serve`) and you've pulled the model (`ollama pull llama3.1:70b`).
 
-### Step 3 — Add your resume
+### Step 3 — Copy config templates
+
+```bash
+cp config/profile.example.py config/profile.py
+cp config/job_titles.example.py config/job_titles.py
+cp config/settings.example.py config/settings.py
+```
+
+The actual config files (`config/*.py`) are gitignored so your personal data stays out of version control.
+
+### Step 4 — Add your resume
 
 Replace the placeholder with your actual resume:
 
@@ -131,7 +141,7 @@ Tips for the resume file:
 - Include contact info, summary, work experience, education, skills
 - No special formatting needed — just clear section headings
 
-### Step 4 — Fill in your profile
+### Step 5 — Fill in your profile
 
 Edit `config/profile.py` with your real information:
 
@@ -168,7 +178,7 @@ COMPANIES_TO_SKIP = [
 
 The `QUESTION_ANSWERS` dictionary is the most important part — it maps keyword patterns found in screening questions to your answers. The agent checks each question against these keywords (case-insensitive, first match wins) so your answers are always consistent and factual.
 
-### Step 5 — Configure your job searches
+### Step 6 — Configure your job searches
 
 Edit `config/job_titles.py`:
 
@@ -192,7 +202,7 @@ MAX_APPLICATIONS_PER_RUN = 10      # Stop after N successful applications
 MIN_SKILL_MATCH_RATIO = 0.3        # 30% of your skills must match the JD
 ```
 
-### Step 6 — (Recommended) Pre-authenticate in Chrome
+### Step 7 — (Recommended) Pre-authenticate in Chrome
 
 The agent works best when you're already logged in to job boards. This avoids login walls and CAPTCHAs:
 
@@ -213,7 +223,7 @@ CHROME_PROFILE_PATH=C:\Users\you\AppData\Local\Google\Chrome\User Data
 
 > Close Chrome before running the agent — Chrome locks its profile to one process at a time.
 
-### Step 7 — Run
+### Step 8 — Run
 
 ```bash
 # Normal run (opens visible browser window)
@@ -306,9 +316,9 @@ The agent has 8 custom actions beyond standard browser interaction:
 | File | What to edit | Key fields |
 |------|-------------|------------|
 | `.env` | API keys, LLM provider | `OPENAI_API_KEY`, `LLM_PROVIDER`, `CHROME_PROFILE_PATH` |
-| `config/profile.py` | Your identity | Name, email, phone, skills, education, `QUESTION_ANSWERS`, `COMPANIES_TO_SKIP` |
-| `config/job_titles.py` | What to search for | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `MAX_APPLICATIONS_PER_RUN` |
-| `config/settings.py` | Agent behavior | `HEADLESS`, `MAX_AGENT_STEPS`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
+| `config/profile.py` | Your identity (copy from `profile.example.py`) | Name, email, phone, skills, education, `QUESTION_ANSWERS`, `COMPANIES_TO_SKIP` |
+| `config/job_titles.py` | What to search for (copy from `job_titles.example.py`) | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `MAX_APPLICATIONS_PER_RUN` |
+| `config/settings.py` | Agent behavior (copy from `settings.example.py`) | `HEADLESS`, `MAX_AGENT_STEPS`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
 | `resume/resume.md` | Your resume | Plain text, no formatting required |
 
 ## Supported LLM Providers
@@ -339,6 +349,7 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 | Browser won't start | Run `uvx browser-use install` to install Chromium |
 | Login wall on LinkedIn | Set `CHROME_PROFILE_PATH` in `.env` to your logged-in Chrome profile |
 | CAPTCHA appears | The agent will call `ask_human` — solve it manually and press Enter |
+| `ModuleNotFoundError: config.profile` | Run `cp config/profile.example.py config/profile.py` (and same for the other config files) |
 | Agent loops or gets stuck | Lower `MAX_AGENT_STEPS` in `config/settings.py`, or try a stronger model |
 | `ModuleNotFoundError` for a provider | Install the missing provider: `pip install langchain-ollama` (etc.) |
 | Chrome profile locked | Close all Chrome windows before running — Chrome locks its profile dir |

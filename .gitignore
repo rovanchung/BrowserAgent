@@ -27,5 +27,10 @@ Thumbs.db
 *.swo
 .claude/
 
+# Config (user-specific — copy from *.example.py)
+config/profile.py
+config/job_titles.py
+config/settings.py
+
 # User data
 resume/
