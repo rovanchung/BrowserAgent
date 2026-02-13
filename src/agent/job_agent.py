@@ -117,7 +117,7 @@ For each job listing:
 For each qualified job:
 1. Click "Easy Apply" or the application button.
 2. Fill all form fields using the profile data.  For screening questions, call `answer_screening_question` with the full question text.
-3. Upload the resume when a file upload field appears.
+3. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
 4. If the application asks for a cover letter, write a brief, tailored cover letter using the job description and the candidate's resume.
 5. Review the filled form for accuracy, then submit.
 6. After submitting, call `save_application` with all job details and the cover letter text.
@@ -125,6 +125,7 @@ For each qualified job:
 
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
+- NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
 - When a form field doesn't match any profile data, leave it blank or call `ask_human`.
 - If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
 - After each successful application, count how many you've completed.  Stop after {max_apply} successful applications.
@@ -157,7 +158,7 @@ Apply to a specific job posting on behalf of the candidate.
 ## Step 4 — Apply
 1. Click "Easy Apply" or the application button.
 2. Fill all form fields using the profile data. For screening questions, call `answer_screening_question` with the full question text.
-3. Upload the resume when a file upload field appears.
+3. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
 4. If the application asks for a cover letter, write a brief, tailored cover letter using the job description and the candidate's resume.
 5. Review the filled form for accuracy, then submit.
 6. After submitting, call `save_application` with all job details and the cover letter text.
@@ -165,6 +166,7 @@ Apply to a specific job posting on behalf of the candidate.
 
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
+- NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
 - When a form field doesn't match any profile data, leave it blank or call `ask_human`.
 - If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
 """

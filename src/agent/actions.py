@@ -13,7 +13,7 @@ from pathlib import Path
 from browser_use import ActionResult, Agent, Controller
 
 from config.profile import PROFILE
-from config.settings import RESUME_PATH
+from config.settings import RESUME_PATH, RESUME_PDF_PATH
 from src.models.schemas import (
     ApplicationRecord,
     ApplicationStatus,
@@ -42,6 +42,22 @@ def read_resume() -> ActionResult:
         )
     text = path.read_text(encoding="utf-8")
     return ActionResult(extracted_content=text)
+
+
+@controller.action(
+    "Get the absolute file path of the candidate's resume PDF for uploading to file input fields. "
+    "Call this whenever you need to upload a resume file."
+)
+def get_resume_file_path() -> ActionResult:
+    """Return the absolute path to the candidate's resume PDF."""
+    path = RESUME_PDF_PATH
+    if not path.exists():
+        return ActionResult(
+            extracted_content=f"ERROR: Resume PDF not found at {path}. "
+            "Please place your resume.pdf in the resume/ folder.",
+            error=f"Resume PDF not found: {path}",
+        )
+    return ActionResult(extracted_content=str(path.resolve()))
 
 
 @controller.action("Get the candidate's personal profile for filling application forms")
