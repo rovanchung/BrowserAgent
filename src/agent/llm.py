@@ -36,9 +36,9 @@ def build_llm() -> BaseChatModel:
         )
 
     if provider == "google":
-        from browser_use.llm.google import ChatGoogle
+        from langchain_google_genai import ChatGoogleGenerativeAI
 
-        return ChatGoogle(
+        return ChatGoogleGenerativeAI(
             model=LLM_MODEL,
             temperature=LLM_TEMPERATURE,
         )
