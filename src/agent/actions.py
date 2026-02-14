@@ -276,7 +276,7 @@ def ask_human(message: str) -> ActionResult:
     "Generate a tailored cover letter for a job. Provide the job_title, company, "
     "location, and the full job_description. Returns the cover letter text."
 )
-def make_cover_letter(
+async def make_cover_letter(
     job_title: str,
     company: str,
     location: str,
@@ -299,5 +299,5 @@ def make_cover_letter(
         location=location,
         description=job_description,
     )
-    letter = generate_cover_letter(_llm, job, resume_text)
+    letter = await generate_cover_letter(_llm, job, resume_text)
     return ActionResult(extracted_content=letter)

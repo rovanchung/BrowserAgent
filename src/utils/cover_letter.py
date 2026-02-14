@@ -28,7 +28,7 @@ Rules:
 """
 
 
-def generate_cover_letter(
+async def generate_cover_letter(
     llm: BaseChatModel,
     job: JobListing,
     resume_text: str,
@@ -56,7 +56,7 @@ Location: {job.location}
 Write the cover letter now.
 """
 
-    response = llm.invoke(
+    response = await llm.ainvoke(
         [
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=user_prompt),
