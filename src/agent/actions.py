@@ -8,12 +8,15 @@ interaction — saving data, reading local files, asking the human, etc.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from browser_use import ActionResult, Agent, Controller
 
 from config.profile import PROFILE
-from config.settings import RESUME_PATH, RESUME_PDF_PATH
+from config.settings import PROJECT_ROOT, RESUME_PATH, RESUME_PDF_PATH
+
+PROFILE_PATH = PROJECT_ROOT / "config" / "profile.py"
 from src.models.schemas import (
     ApplicationRecord,
     ApplicationStatus,
@@ -39,6 +42,36 @@ def set_llm(llm) -> None:
 
 
 controller = Controller()
+
+
+def _add_company_skip_entry(job_title: str, company: str) -> None:
+    """Append a 'title:company' entry to companies_to_skip in config/profile.py.
+
+    Modifies the file on disk and updates the in-memory PROFILE dict so the
+    agent won't re-apply to the same job within the same run.
+    """
+    entry = f"{job_title}:{company}"
+
+    # Update in-memory list
+    skip_list = PROFILE.setdefault("companies_to_skip", [])
+    if entry in skip_list:
+        return
+    skip_list.append(entry)
+
+    # Persist to config/profile.py
+    try:
+        text = PROFILE_PATH.read_text(encoding="utf-8")
+        # Find the closing bracket of companies_to_skip list and insert before it
+        pattern = r"(\"companies_to_skip\"\s*:\s*\[)(.*?)(\s*\])"
+        match = re.search(pattern, text, flags=re.DOTALL)
+        if match:
+            escaped = entry.replace('"', '\\"')
+            new_text = (
+                text[: match.end(2)] + f'\n        "{escaped}",' + text[match.end(2) :]
+            )
+            PROFILE_PATH.write_text(new_text, encoding="utf-8")
+    except Exception:
+        pass  # Non-critical — in-memory update is enough for this run
 
 
 @controller.action("Read the candidate's resume from disk")
@@ -132,6 +165,9 @@ def save_application(
     )
     log_path = save_record(record)
     cl_path = save_cover_letter_file(record)
+
+    # Add to companies_to_skip so we don't re-apply to the same job
+    _add_company_skip_entry(job_title, company)
 
     # Update the active run summary in real-time
     summary = get_run_summary()
