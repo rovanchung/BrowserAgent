@@ -172,7 +172,7 @@ Search for jobs and apply to every qualified position on behalf of the candidate
 ## Step 3 — Review listings (up to {max_review})
 For each job listing:
 1. Open the listing to read the full description.
-2. Call `check_company` with the company name — if "skip", call `save_skipped_job` with reason "company_blocked" and move on.
+2. Call `check_company` with the company name and job title — if "skip", call `save_skipped_job` with reason "company_blocked" and move on.
 3. Call `check_job_description` with the full description — if "skip", call `save_skipped_job` with reason "keyword_blocked" and move on.
 4. Evaluate whether the candidate is qualified: at least {int(skill_ratio * 100)}% of the candidate's skills should appear in the description.  If not qualified, call `save_skipped_job` with reason "not_qualified" and move on.
 
@@ -216,7 +216,7 @@ Apply to a specific job posting on behalf of the candidate.
 2. Read the full job description.
 
 ## Step 3 — Evaluate the job
-1. Call `check_company` with the company name — if "skip", call `save_skipped_job` with reason "company_blocked" and stop.
+1. Call `check_company` with the company name and job title — if "skip", call `save_skipped_job` with reason "company_blocked" and stop.
 2. Call `check_job_description` with the full description — if "skip", call `save_skipped_job` with reason "keyword_blocked" and stop.
 
 ## Step 4 — Apply

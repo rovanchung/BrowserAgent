@@ -51,6 +51,9 @@ PROFILE: dict = {
     "how_did_you_hear": "LinkedIn",
     "has_referral": False,
     # ── Filters ──────────────────────────────────────────────────────
-    "companies_to_skip": ["ExampleCorp"],
+    # Each entry is either:
+    #   "*:Company"              – skip ALL jobs at that company
+    #   "Job Title:Company"      – skip only that title at that company
+    "companies_to_skip": ["*:ExampleCorp", "Data Analyst:SomeCorp"],
     "keywords_to_avoid": [],
 }

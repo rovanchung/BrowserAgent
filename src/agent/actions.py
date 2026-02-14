@@ -184,14 +184,26 @@ def save_skipped_job(
 
 
 @controller.action(
-    "Check whether a company should be skipped (blocked list). "
-    "Returns 'skip' or 'ok'."
+    "Check whether a company+job should be skipped (blocked list). "
+    "Pass the company_name and job_title. Returns 'skip' or 'ok'."
 )
-def check_company(company_name: str) -> ActionResult:
-    """Check the company against the user's block list."""
-    for blocked in PROFILE.get("companies_to_skip", []):
-        if blocked.lower() in company_name.lower():
-            return ActionResult(extracted_content="skip")
+def check_company(company_name: str, job_title: str = "") -> ActionResult:
+    """Check the company (and optionally job title) against the user's block list.
+
+    Each entry in companies_to_skip uses the format ``"title_pattern:company_pattern"``.
+    A title_pattern of ``*`` matches any job title at that company.
+    """
+    company_lower = company_name.lower()
+    title_lower = job_title.lower()
+    for entry in PROFILE.get("companies_to_skip", []):
+        if ":" in entry:
+            title_pat, company_pat = entry.split(":", 1)
+        else:
+            # Bare string → treat as wildcard company match (backward compat)
+            title_pat, company_pat = "*", entry
+        if company_pat.strip().lower() in company_lower:
+            if title_pat.strip() == "*" or title_pat.strip().lower() in title_lower:
+                return ActionResult(extracted_content="skip")
     return ActionResult(extracted_content="ok")
 
 
