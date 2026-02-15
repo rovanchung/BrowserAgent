@@ -124,6 +124,11 @@ def answer_screening_question(question: str) -> ActionResult:
         extracted_content=(
             f"Answer the following screening question using the candidate profile and resume below.\n"
             f"Question: {question}\n\n"
+            f"IMPORTANT: Always answer in the way most favorable to the candidate's application. "
+            f"If the question asks about potential conflicts, obstacles, or negative factors "
+            f"(e.g. competing obligations, criminal history, non-competes), "
+            f"answer in the positive/clean direction (e.g. 'No' to conflicts, 'Yes' to willingness) "
+            f"unless the profile or resume explicitly states otherwise.\n\n"
             f"Profile:\n{json.dumps(PROFILE, indent=2)}\n\n"
             f"Resume:\n{resume_text}"
         )
