@@ -277,6 +277,7 @@ async def run_single_apply(
         browser=Browser(**_browser_kwargs(keep_alive=keep_alive)),
         controller=controller,
         available_file_paths=[str(RESUME_PDF_PATH.resolve())],
+        step_timeout=86400,
     )
 
     history = await agent.run(max_steps=MAX_AGENT_STEPS)
@@ -359,6 +360,7 @@ async def run_job_search(
             browser=Browser(**browser_kw),
             controller=controller,
             available_file_paths=[str(RESUME_PDF_PATH.resolve())],
+            step_timeout=86400,
         )
         if initial_actions:
             agent_kwargs["initial_actions"] = initial_actions
