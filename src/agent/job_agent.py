@@ -178,7 +178,7 @@ For each job listing:
 
 ## Step 4 — Apply (up to {max_apply} successful applications)
 For each qualified job:
-1. Click "Easy Apply" or the application button.
+1. Click the application button.
 2. Fill all form fields using the profile data.  For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
 4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
@@ -190,6 +190,7 @@ For each qualified job:
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
+- Do NOT skip a job just because it lacks an "Easy Apply" button. Apply to all qualified jobs regardless of the application method.
 - When a form field doesn't match any profile or resume data, leave it blank or call `ask_human`.
 - If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
 - After each successful application, count how many you've completed.  Stop after {max_apply} successful applications.
@@ -220,7 +221,7 @@ Apply to a specific job posting on behalf of the candidate.
 2. Call `check_job_description` with the full description — if "skip", call `save_skipped_job` with reason "keyword_blocked" and stop.
 
 ## Step 4 — Apply
-1. Click "Easy Apply" or the application button.
+1. Click the application button.
 2. Fill all form fields using the profile data. For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
 4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
@@ -232,6 +233,7 @@ Apply to a specific job posting on behalf of the candidate.
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
+- Do NOT skip a job just because it lacks an "Easy Apply" button. Apply to all qualified jobs regardless of the application method.
 - When a form field doesn't match any profile or resume data, leave it blank or call `ask_human`.
 - If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
 """
