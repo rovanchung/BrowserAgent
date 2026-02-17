@@ -14,9 +14,44 @@ from pathlib import Path
 from browser_use import ActionResult, Agent, Controller
 
 from config.profile import PROFILE
-from config.settings import PROJECT_ROOT, RESUME_PATH, RESUME_PDF_PATH
+from config.settings import PROJECT_ROOT, RESUME_PATH, RESUME_PDF_PATH, SKIP_MATCH_TOLERANCE
 
 PROFILE_PATH = PROJECT_ROOT / "config" / "profile.py"
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """Return the Levenshtein edit-distance between two strings."""
+    if len(a) < len(b):
+        return _levenshtein(b, a)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a):
+        curr = [i + 1]
+        for j, cb in enumerate(b):
+            curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (ca != cb)))
+        prev = curr
+    return prev[-1]
+
+
+def _fuzzy_contains(haystack: str, needle: str, tolerance: int) -> bool:
+    """Check if *needle* appears in *haystack* within *tolerance* edits.
+
+    For exact mode (tolerance=0) this is a simple substring check.
+    For fuzzy mode it slides a window over *haystack* and checks the
+    Levenshtein distance of each window against *needle*.
+    """
+    if tolerance == 0:
+        return needle in haystack
+    if not needle:
+        return True
+    n = len(needle)
+    for start in range(len(haystack) - n + 1 + tolerance):
+        for end in range(start + max(1, n - tolerance), start + n + tolerance + 1):
+            window = haystack[start:end]
+            if _levenshtein(window, needle) <= tolerance:
+                return True
+    return False
 from src.models.schemas import (
     ApplicationRecord,
     ApplicationStatus,
@@ -234,6 +269,7 @@ def check_company(company_name: str, job_title: str = "") -> ActionResult:
     Each entry in companies_to_skip uses the format ``"title_pattern:company_pattern"``.
     A title_pattern of ``*`` matches any job title at that company.
     """
+    tol = SKIP_MATCH_TOLERANCE
     company_lower = company_name.lower()
     title_lower = job_title.lower()
     for entry in PROFILE.get("companies_to_skip", []):
@@ -242,8 +278,8 @@ def check_company(company_name: str, job_title: str = "") -> ActionResult:
         else:
             # Bare string → treat as wildcard company match (backward compat)
             title_pat, company_pat = "*", entry
-        if company_pat.strip().lower() in company_lower:
-            if title_pat.strip() == "*" or title_pat.strip().lower() in title_lower:
+        if _fuzzy_contains(company_lower, company_pat.strip().lower(), tol):
+            if title_pat.strip() == "*" or _fuzzy_contains(title_lower, title_pat.strip().lower(), tol):
                 return ActionResult(extracted_content="skip")
     return ActionResult(extracted_content="ok")
 
