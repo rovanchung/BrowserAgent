@@ -83,13 +83,18 @@ def _apply_overrides(args: argparse.Namespace) -> None:
 
 
 def _check_prerequisites() -> None:
-    """Verify that required files exist before launching the agent."""
-    from config.settings import RESUME_PATH
+    """Verify that required files exist and generate resume.txt from PDF."""
+    from config.settings import RESUME_PATH, RESUME_PDF_PATH
+    from src.utils.pdf_to_text import pdf_to_text
 
-    if not RESUME_PATH.exists():
-        print(f"ERROR: Resume file not found at {RESUME_PATH}")
-        print("Create the file and paste your resume text, then re-run.")
+    if not RESUME_PDF_PATH.exists():
+        print(f"ERROR: Resume PDF not found at {RESUME_PDF_PATH}")
+        print("Place your resume.pdf in the resume/ folder, then re-run.")
         sys.exit(1)
+
+    # Auto-generate the plain-text resume from the PDF
+    print(f"  Generating {RESUME_PATH.name} from {RESUME_PDF_PATH.name}...")
+    pdf_to_text(RESUME_PDF_PATH, RESUME_PATH)
 
 
 def _print_banner() -> None:

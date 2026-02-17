@@ -116,7 +116,7 @@ def read_resume() -> ActionResult:
     if not path.exists():
         return ActionResult(
             extracted_content=f"ERROR: Resume not found at {path}. "
-            "Please create resume/resume.md first.",
+            "Please place resume.pdf in the resume/ folder and re-run.",
             error=f"Resume file not found: {path}",
         )
     text = path.read_text(encoding="utf-8")

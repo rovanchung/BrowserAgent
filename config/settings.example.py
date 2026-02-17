@@ -10,7 +10,8 @@ from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-RESUME_PATH = PROJECT_ROOT / "resume" / "resume.md"
+RESUME_PDF_PATH = PROJECT_ROOT / "resume" / "resume.pdf"
+RESUME_PATH = PROJECT_ROOT / "resume" / "resume.txt"  # auto-generated from PDF
 OUTPUT_DIR = PROJECT_ROOT / "output"
 
 # ── LLM Configuration ───────────────────────────────────────────────

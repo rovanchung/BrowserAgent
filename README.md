@@ -39,7 +39,7 @@ BrowserAgent/
 │   └── settings.example.py          # Template — copy to settings.py and adjust
 │
 ├── resume/
-│   └── resume.md                   # Your resume (plain text)
+│   └── resume.pdf                  # Your resume (PDF — text extracted automatically)
 │
 ├── src/
 │   ├── agent/
@@ -129,17 +129,13 @@ The actual config files (`config/*.py`) are gitignored so your personal data sta
 
 ### Step 4 — Add your resume
 
-Replace the placeholder with your actual resume:
+Place your resume PDF in the `resume/` folder:
 
 ```bash
-# Paste your plain-text resume into this file:
-nano resume/resume.md
+cp /path/to/your/resume.pdf resume/resume.pdf
 ```
 
-Tips for the resume file:
-- Plain text works best (the agent reads it as-is)
-- Include contact info, summary, work experience, education, skills
-- No special formatting needed — just clear section headings
+The agent automatically extracts plain text from the PDF on startup (`resume.txt` is generated for you).
 
 ### Step 5 — Fill in your profile
 
@@ -306,7 +302,7 @@ The agent has 8 custom actions beyond standard browser interaction:
 
 | Action | What it does |
 |--------|-------------|
-| `read_resume` | Loads `resume/resume.md` into the agent's context |
+| `read_resume` | Loads the resume text (auto-extracted from `resume/resume.pdf`) into the agent's context |
 | `get_profile` | Returns the full `PROFILE` dictionary as JSON |
 | `answer_screening_question` | Returns the profile and resume so the agent can answer any screening question |
 | `save_application` | Logs a successful application + cover letter to output |
@@ -323,7 +319,7 @@ The agent has 8 custom actions beyond standard browser interaction:
 | `config/profile.py` | Your identity (copy from `profile.example.py`) | `PROFILE` dict: name, email, phone, skills, education, `companies_to_skip`, `keywords_to_avoid` |
 | `config/job_titles.py` | What to search for (copy from `job_titles.example.py`) | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `MAX_APPLICATIONS_PER_RUN` |
 | `config/settings.py` | Agent behavior (copy from `settings.example.py`) | `HEADLESS`, `MAX_AGENT_STEPS`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
-| `resume/resume.md` | Your resume | Plain text, no formatting required |
+| `resume/resume.pdf` | Your resume | PDF format — plain text is extracted automatically on startup |
 
 ## Supported LLM Providers
 
@@ -352,7 +348,7 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 
 | Problem | Solution |
 |---------|----------|
-| `Resume file not found` | Create `resume/resume.md` with your resume text |
+| `Resume PDF not found` | Place your `resume.pdf` in the `resume/` folder |
 | Browser won't start | Run `uvx browser-use install` to install Chromium |
 | Login wall on LinkedIn | Set `CHROME_PROFILE_PATH` in `.env` to your logged-in Chrome profile |
 | CAPTCHA appears | The agent will call `ask_human` — solve it manually and press Enter |
