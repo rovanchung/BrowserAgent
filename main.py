@@ -98,6 +98,7 @@ def _check_prerequisites() -> None:
 
 
 def _print_banner() -> None:
+    from config.pricing import MODEL_PRICING
     from config.settings import LLM_MODEL, LLM_PROVIDER
 
     print(r"""
@@ -109,6 +110,14 @@ def _print_banner() -> None:
                                                 |___/
     """)
     print(f"  LLM:  {LLM_PROVIDER} / {LLM_MODEL}")
+    rates = MODEL_PRICING.get((LLM_PROVIDER.lower(), LLM_MODEL))
+    if rates:
+        print(
+            f"  Rate: ${rates['input']:.2f} input / ${rates['cached']:.2f} cached / "
+            f"${rates['output']:.2f} output  (per 1M tokens)"
+        )
+    else:
+        print("  Rate: (unknown model — cost tracking disabled)")
     print(
         f"  Mode: {'headless' if __import__('config.settings', fromlist=['HEADLESS']).HEADLESS else 'visible browser'}"
     )

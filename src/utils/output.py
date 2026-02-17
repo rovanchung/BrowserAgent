@@ -16,7 +16,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from config.settings import OUTPUT_DIR, OUTPUT_FORMAT
+from config.pricing import get_token_cost
+from config.settings import LLM_MODEL, LLM_PROVIDER, OUTPUT_DIR, OUTPUT_FORMAT
 from src.models.schemas import ApplicationRecord, ApplicationStatus, RunSummary
 
 # ── Runtime context (active run) ────────────────────────────────────
@@ -190,11 +191,16 @@ def accumulate_tokens(usage: object) -> None:
     """
     if _current_summary is None or usage is None:
         return
-    _current_summary.token_usage.input_tokens += usage.total_prompt_tokens
-    _current_summary.token_usage.output_tokens += usage.total_completion_tokens
-    _current_summary.token_usage.cached_tokens += usage.total_prompt_cached_tokens
+    input_toks = usage.total_prompt_tokens
+    output_toks = usage.total_completion_tokens
+    cached_toks = usage.total_prompt_cached_tokens
+    _current_summary.token_usage.input_tokens += input_toks
+    _current_summary.token_usage.output_tokens += output_toks
+    _current_summary.token_usage.cached_tokens += cached_toks
     _current_summary.token_usage.total_tokens += usage.total_tokens
-    _current_summary.token_usage.total_cost += usage.total_cost
+    _current_summary.token_usage.total_cost += get_token_cost(
+        LLM_PROVIDER, LLM_MODEL, input_toks, output_toks, cached_toks
+    )
     flush_run_summary()
 
 
