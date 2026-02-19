@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 from browser_use import ActionResult, Agent, Controller
+from pydantic import BaseModel, ConfigDict
 
 from config.profile import PROFILE
 from config.settings import PROJECT_ROOT, RESUME_PATH, RESUME_PDF_PATH, SKIP_MATCH_TOLERANCE
@@ -79,6 +80,18 @@ def set_llm(llm) -> None:
 controller = Controller()
 
 
+class _NoParams(BaseModel):
+    """Param model for actions that take no real arguments.
+
+    Uses ``extra='allow'`` so the LLM can pass arbitrary fields (e.g.
+    ``_placeholder``) without Pydantic rejecting them.  browser-use's
+    default ``ActionModel`` uses ``extra='forbid'`` which causes
+    validation errors for zero-parameter actions.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+
 def _add_company_skip_entry(job_title: str, company: str) -> None:
     """Append a 'title:company' entry to companies_to_skip in config/profile.py.
 
@@ -109,7 +122,7 @@ def _add_company_skip_entry(job_title: str, company: str) -> None:
         pass  # Non-critical — in-memory update is enough for this run
 
 
-@controller.action("Read the candidate's resume from disk")
+@controller.action("Read the candidate's resume from disk", param_model=_NoParams)
 def read_resume() -> ActionResult:
     """Return the full text of the resume file."""
     path = RESUME_PATH
@@ -125,7 +138,8 @@ def read_resume() -> ActionResult:
 
 @controller.action(
     "Get the absolute file path of the candidate's resume PDF for uploading to file input fields. "
-    "Call this whenever you need to upload a resume file."
+    "Call this whenever you need to upload a resume file.",
+    param_model=_NoParams,
 )
 def get_resume_file_path() -> ActionResult:
     """Return the absolute path to the candidate's resume PDF."""
@@ -139,7 +153,7 @@ def get_resume_file_path() -> ActionResult:
     return ActionResult(extracted_content=str(path.resolve()))
 
 
-@controller.action("Get the candidate's personal profile for filling application forms")
+@controller.action("Get the candidate's personal profile for filling application forms", param_model=_NoParams)
 def get_profile() -> ActionResult:
     """Return the full candidate profile as JSON."""
     return ActionResult(extracted_content=json.dumps(PROFILE, indent=2))
