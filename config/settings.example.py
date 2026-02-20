@@ -40,6 +40,10 @@ HEADLESS = False
 # Max number of agent steps before the agent gives up on a single task.
 MAX_AGENT_STEPS = 50
 
+# Seconds to wait for a single LLM call before timing out.
+# browser-use defaults to 60-90s depending on the model; increase for large contexts.
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "300"))
+
 # Seconds to wait between actions (helps avoid bot detection).
 ACTION_DELAY = 1.0
 

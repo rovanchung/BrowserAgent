@@ -18,6 +18,7 @@ from config.settings import (
     ACTION_DELAY,
     CHROME_PROFILE_PATH,
     HEADLESS,
+    LLM_TIMEOUT,
     MAX_AGENT_STEPS,
     RESUME_PATH,
     RESUME_PDF_PATH,
@@ -278,6 +279,7 @@ async def run_single_apply(
         controller=controller,
         available_file_paths=[str(RESUME_PDF_PATH.resolve())],
         step_timeout=86400,
+        llm_timeout=LLM_TIMEOUT,
     )
 
     history = await agent.run(max_steps=MAX_AGENT_STEPS)
@@ -361,6 +363,7 @@ async def run_job_search(
             controller=controller,
             available_file_paths=[str(RESUME_PDF_PATH.resolve())],
             step_timeout=86400,
+            llm_timeout=LLM_TIMEOUT,
         )
         if initial_actions:
             agent_kwargs["initial_actions"] = initial_actions
