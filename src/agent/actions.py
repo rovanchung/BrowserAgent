@@ -294,8 +294,15 @@ def check_company(company_name: str, job_title: str = "") -> ActionResult:
             title_pat, company_pat = "*", entry
         if _fuzzy_contains(company_lower, company_pat.strip().lower(), tol):
             if title_pat.strip() == "*" or _fuzzy_contains(title_lower, title_pat.strip().lower(), tol):
-                return ActionResult(extracted_content="skip")
-    return ActionResult(extracted_content="ok")
+                return ActionResult(
+                    extracted_content=(
+                        f'SKIP — "{company_name}" is on the blocked list. '
+                        "You MUST call save_skipped_job with reason "
+                        '"company_blocked" now and move to the next listing. '
+                        "Do NOT apply to this job."
+                    )
+                )
+    return ActionResult(extracted_content=f'OK — "{company_name}" is not blocked. Proceed.')
 
 
 @controller.action(
@@ -308,9 +315,14 @@ def check_job_description(description: str) -> ActionResult:
     for kw in PROFILE.get("keywords_to_avoid", []):
         if kw.lower() in desc_lower:
             return ActionResult(
-                extracted_content=f"skip — matched blocked keyword: {kw}"
+                extracted_content=(
+                    f'SKIP — blocked keyword "{kw}" found in description. '
+                    "You MUST call save_skipped_job with reason "
+                    '"keyword_blocked" now and move to the next listing. '
+                    "Do NOT apply to this job."
+                )
             )
-    return ActionResult(extracted_content="ok")
+    return ActionResult(extracted_content="OK — no blocked keywords found. Proceed.")
 
 
 @controller.action(
