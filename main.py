@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -193,6 +194,10 @@ async def main() -> None:
     print(f"  Skipped:  {summary.total_skipped}")
     print(f"  Failed:   {summary.total_failed}")
     print()
+
+    # Force-terminate — with --keep-alive the Playwright browser connection
+    # keeps background asyncio tasks alive, preventing a clean shutdown.
+    os._exit(0)
 
 
 if __name__ == "__main__":
