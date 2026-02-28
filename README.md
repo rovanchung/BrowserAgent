@@ -68,149 +68,19 @@ BrowserAgent/
 
 ## Setup
 
-### Step 1 — Clone and install dependencies
+Run the interactive setup wizard:
 
 ```bash
 git clone https://github.com/rovanchung/BrowserAgent.git
 cd BrowserAgent
-
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-pip install -r requirements.txt
+bash setup.sh
 ```
 
-Install the browser engine:
+The script walks you through every step: creating a virtual environment, installing dependencies, configuring your LLM provider and API key, copying config templates, and importing your resume. Each prompt explains what the value is for and where it's stored.
 
-```bash
-uvx browser-use install
-```
+> **Prefer manual setup?** See the [Configuration Reference](#configuration-reference) below — the files you need are `.env` (from `.env.example`), `config/profile.py`, `config/job_titles.py`, and `config/settings.py` (each from their `.example.py` template), plus your resume at `resume/resume.pdf`.
 
-> If `uvx` is not available, run `pip install uv` first, or use `playwright install chromium` as a fallback.
-
-### Step 2 — Set your API key
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and add your key:
-
-```env
-# Pick one provider:
-LLM_PROVIDER=openai
-LLM_MODEL=gpt-4.1-mini
-OPENAI_API_KEY=sk-...
-```
-
-**Using Anthropic:**
-```env
-LLM_PROVIDER=anthropic
-LLM_MODEL=claude-sonnet-4-5-20250929
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-**Using Ollama (free, local):**
-```env
-LLM_PROVIDER=ollama
-LLM_MODEL=llama3.1:70b
-```
-Make sure Ollama is running (`ollama serve`) and you've pulled the model (`ollama pull llama3.1:70b`).
-
-### Step 3 — Copy config templates
-
-```bash
-cp config/profile.example.py config/profile.py
-cp config/job_titles.example.py config/job_titles.py
-cp config/settings.example.py config/settings.py
-```
-
-The actual config files (`config/*.py`) are gitignored so your personal data stays out of version control.
-
-### Step 4 — Add your resume
-
-Place your resume PDF in the `resume/` folder:
-
-```bash
-cp /path/to/your/resume.pdf resume/resume.pdf
-```
-
-The agent automatically extracts plain text from the PDF on startup (`resume.txt` is generated for you).
-
-### Step 5 — Fill in your profile
-
-Edit `config/profile.py` with your real information. The profile is a single `PROFILE` dictionary:
-
-```python
-PROFILE: dict = {
-    # ── Personal Information ─────────────────────────────
-    "first_name": "Jane",
-    "last_name": "Doe",
-    "email": "jane.doe@email.com",
-    "phone": "+1-555-012-3456",
-    "location": "San Francisco, CA",
-    "linkedin_url": "https://linkedin.com/in/janedoe",
-    # ── Work Authorization ───────────────────────────────
-    "work_authorization": "US Citizen",
-    "requires_sponsorship": False,
-    # ── Experience ───────────────────────────────────────
-    "years_of_experience": 6,
-    "current_title": "Senior Software Engineer",
-    "skills": ["Python", "TypeScript", "AWS", "Kubernetes"],
-    # ── Filters ──────────────────────────────────────────
-    "companies_to_skip": ["Current Employer Inc."],
-    "keywords_to_avoid": ["security clearance required"],
-}
-```
-
-The agent uses this profile — along with your resume — to fill forms and answer screening questions. See `config/profile.example.py` for the full template with all available fields.
-
-### Step 6 — Configure your job searches
-
-Edit `config/job_titles.py`:
-
-```python
-SEARCHES = [
-    {
-        "title": "Senior Software Engineer",
-        "location": "San Francisco, CA",
-        "remote_only": True,
-    },
-    {
-        "title": "Staff Software Engineer",
-        "location": "Remote",
-        "remote_only": True,
-    },
-]
-
-JOB_BOARDS = ["linkedin"]         # Supported: "linkedin", "indeed"
-DATE_POSTED = "past_week"          # "past_24h", "past_week", "past_month", "any"
-MAX_APPLICATIONS_PER_RUN = 10      # Stop after N successful applications
-MIN_SKILL_MATCH_RATIO = 0.3        # 30% of your skills must match the JD
-```
-
-### Step 7 — (Recommended) Pre-authenticate in Chrome
-
-The agent works best when you're already logged in to job boards. This avoids login walls and CAPTCHAs:
-
-1. Open Chrome and log in to LinkedIn (or whatever board you're using)
-2. Find your Chrome profile path: navigate to `chrome://version` and look for "Profile Path"
-3. Add the **parent directory** of that path to `.env`:
-
-```env
-# Example (Linux):
-CHROME_PROFILE_PATH=/home/you/.config/google-chrome
-
-# Example (macOS):
-CHROME_PROFILE_PATH=/Users/you/Library/Application Support/Google/Chrome
-
-# Example (Windows):
-CHROME_PROFILE_PATH=C:\Users\you\AppData\Local\Google\Chrome\User Data
-```
-
-> Close Chrome before running the agent — Chrome locks its profile to one process at a time.
-
-### Step 8 — Run
+### Run
 
 ```bash
 # Normal run (opens visible browser window)
