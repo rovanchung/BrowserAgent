@@ -14,6 +14,7 @@ from browser_use import Agent, Browser
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from config import job_titles
+from config.profile import PROFILE
 from config.settings import (
     ACTION_DELAY,
     CHROME_PROFILE_PATH,
@@ -166,7 +167,18 @@ Search for jobs and apply to every qualified position on behalf of the candidate
 ## Step 1 — Read candidate data
 1. Call the `read_resume` action to load the resume.
 2. Call the `get_profile` action to load personal info and preferences.
-   Keep this data in memory for filling forms.
+
+**CRITICAL — Use EXACTLY these values when filling personal info fields:**
+- First Name: {PROFILE["first_name"]}
+- Last Name: {PROFILE["last_name"]}
+- Preferred Name: {PROFILE.get("preferred_first_name", "")}
+- Email: {PROFILE["email"]}
+- Phone: {PROFILE["phone"]}
+- Location: {PROFILE["location"]}
+- LinkedIn: {PROFILE.get("linkedin_url", "")}
+- GitHub: {PROFILE.get("github_url", "")}
+- Portfolio: {PROFILE.get("portfolio_url", "")}
+NEVER guess or fabricate personal details. If unsure of a value, call `get_profile` again.
 
 {step2}
 
@@ -214,7 +226,18 @@ Apply to a specific job posting on behalf of the candidate.
 ## Step 1 — Read candidate data
 1. Call the `read_resume` action to load the resume.
 2. Call the `get_profile` action to load personal info and preferences.
-   Keep this data in memory for filling forms.
+
+**CRITICAL — Use EXACTLY these values when filling personal info fields:**
+- First Name: {PROFILE["first_name"]}
+- Last Name: {PROFILE["last_name"]}
+- Preferred Name: {PROFILE.get("preferred_first_name", "")}
+- Email: {PROFILE["email"]}
+- Phone: {PROFILE["phone"]}
+- Location: {PROFILE["location"]}
+- LinkedIn: {PROFILE.get("linkedin_url", "")}
+- GitHub: {PROFILE.get("github_url", "")}
+- Portfolio: {PROFILE.get("portfolio_url", "")}
+NEVER guess or fabricate personal details. If unsure of a value, call `get_profile` again.
 
 ## Step 2 — Navigate to the job posting
 1. Go directly to: {url}
