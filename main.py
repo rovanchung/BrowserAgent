@@ -2,11 +2,10 @@
 """
 BrowserAgent — Autonomous browser agent for job applications.
 
-Usage:
-    python main.py                    # Run with default config
+Run with no arguments for an interactive menu, or pass flags directly:
+
+    python main.py                    # Interactive menu
     python main.py --provider openai  # Override LLM provider
-    python main.py --model gpt-4.1   # Override model name
-    python main.py --headless         # Run in headless mode
     python main.py --url <link>       # Apply to a specific job posting
     python main.py --dry-run          # Print the task prompt without running
 """
@@ -16,6 +15,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import signal
 import sys
 from pathlib import Path
 
@@ -25,9 +25,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _has_flags() -> bool:
+    """Return True if the user passed any CLI flags."""
+    return len(sys.argv) > 1
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="BrowserAgent — Autonomous job application agent",
+        description="BrowserAgent — Autonomous job application agent. "
+        "Run with no arguments for an interactive menu.",
     )
     parser.add_argument(
         "--provider",
@@ -55,8 +61,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--initial-actions",
         action="store_true",
-        help="Use browser-use initial_actions to navigate directly to search "
-        "results (skips LLM navigation steps, saves tokens)",
+        help="Navigate via URL params, skip LLM search steps (saves tokens)",
     )
     parser.add_argument(
         "--review",
@@ -67,6 +72,11 @@ def parse_args() -> argparse.Namespace:
         "--keep-alive",
         action="store_true",
         help="Keep the browser open after the agent finishes",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from the last interrupted run's progress",
     )
     return parser.parse_args()
 
@@ -141,7 +151,14 @@ def _check_configs() -> None:
 
 
 async def main() -> None:
-    args = parse_args()
+    if _has_flags():
+        args = parse_args()
+    else:
+        # No flags — show interactive menu
+        _check_configs()
+        from src.utils.interactive import interactive_menu
+        args = interactive_menu()
+
     _check_configs()
     _apply_overrides(args)
 
@@ -184,6 +201,7 @@ async def main() -> None:
             keep_alive=args.keep_alive,
             use_initial_actions=args.initial_actions,
             review_before_submit=args.review,
+            resume_run=args.resume,
         )
 
     print("\n" + "=" * 60)
@@ -201,4 +219,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    # Ctrl+C: force-exit immediately so Playwright's cleanup hooks
+    # don't get a chance to close the browser tabs.
+    signal.signal(signal.SIGINT, lambda *_: os._exit(130))
     asyncio.run(main())

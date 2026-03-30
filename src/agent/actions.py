@@ -64,17 +64,26 @@ from src.utils.output import (
     flush_run_summary,
     get_run_summary,
     save_cover_letter_file,
+    save_progress,
     save_record,
 )
 
 # Module-level LLM reference, set by job_agent before running.
 _llm = None
+# Current search index, set by job_agent for progress tracking.
+_current_search_index: int = 0
 
 
 def set_llm(llm) -> None:
     """Store the LLM so actions can use it for cover-letter generation."""
     global _llm
     _llm = llm
+
+
+def set_current_search_index(index: int) -> None:
+    """Set the current search index for progress tracking."""
+    global _current_search_index
+    _current_search_index = index
 
 
 controller = Controller()
@@ -230,6 +239,8 @@ def save_application(
         summary.total_applied += 1
         summary.total_reviewed += 1
         flush_run_summary()
+        # Save progress so --resume can pick up from here
+        save_progress(_current_search_index, summary.total_reviewed)
 
     msg = f"Application saved to {log_path}"
     if cl_path:
@@ -267,6 +278,8 @@ def save_skipped_job(
         summary.total_skipped += 1
         summary.total_reviewed += 1
         flush_run_summary()
+        # Save progress so --resume can pick up from here
+        save_progress(_current_search_index, summary.total_reviewed)
 
     return ActionResult(
         extracted_content=f"Skipped: {job_title} at {company} ({skip_reason.value})"

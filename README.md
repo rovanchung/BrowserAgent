@@ -55,6 +55,7 @@ BrowserAgent/
 └── output/                          # Created automatically on first run
     ├── applications.json            # Rolling log of all applications
     ├── applications.csv             # (if CSV mode enabled)
+    ├── progress.json                # Resume checkpoint (auto-cleared on completion)
     ├── cover_letters/               # One .txt file per application
     │   └── Acme_Corp_Senior_SWE_20260208_143022.txt
     └── run_20260208_143022.json     # Per-run summary with stats
@@ -83,39 +84,16 @@ The script walks you through every step: creating a virtual environment, install
 ### Run
 
 ```bash
-# Normal run (opens visible browser window)
+# Interactive menu — walks you through all options
 python main.py
 
-# Headless mode (no visible browser)
-python main.py --headless
-
-# Override LLM provider/model from the command line
-python main.py --provider anthropic --model claude-sonnet-4-5-20250929
-
-# Dry run — prints the task prompts without opening a browser
-python main.py --dry-run
-
-# Apply to a single job posting URL
+# Or pass flags directly to skip the menu
+python main.py --initial-actions --review
 python main.py --url https://linkedin.com/jobs/view/123456
-
-# Fast navigation — skip LLM search steps by navigating directly to
-# filtered results via URL params (currently supports LinkedIn)
-python main.py --initial-actions
-
-# Review mode — pause for your approval before each application is submitted
-python main.py --review
-
-# Combine flags as needed
-python main.py --initial-actions --review --headless
+python main.py --dry-run
 ```
 
-The agent will:
-1. Read your resume and profile
-2. Navigate to the job board (or jump straight to filtered results with `--initial-actions`)
-3. Run each search from `config/job_titles.py`
-4. For each listing: check company block list, check description for blocked keywords, evaluate skill match
-5. For qualified jobs: fill the application, answer screening questions, generate a cover letter, submit (or pause for your approval with `--review`)
-6. Log everything to `output/`
+Run `python main.py --help` for the full list of flags.
 
 ## Output
 
@@ -166,6 +144,16 @@ output/cover_letters/
 
 The agent also deduplicates across runs — if a job URL already appears in the log, it won't apply again.
 
+**`progress.json`** — resume checkpoint (only exists during an incomplete run):
+```json
+{
+  "search_index": 1,
+  "listings_reviewed": 12,
+  "saved_at": "2026-02-08T14:35:00.123456"
+}
+```
+Use `--resume` to pick up from where you left off. The file is automatically deleted when a run completes successfully.
+
 ## Custom Actions
 
 The agent has 8 custom actions beyond standard browser interaction:
@@ -185,7 +173,7 @@ The agent has 8 custom actions beyond standard browser interaction:
 
 | File | What to edit | Key fields |
 |------|-------------|------------|
-| `.env` | API keys, LLM provider | `OPENAI_API_KEY`, `LLM_PROVIDER`, `CHROME_PROFILE_PATH` |
+| `.env` | API keys, LLM provider | `OPENAI_API_KEY`, `LLM_PROVIDER`, `CHROME_PROFILE_PATH`, `GCP_PROJECT` |
 | `config/profile.py` | Your identity (copy from `profile.example.py`) | `PROFILE` dict: name, email, phone, skills, education, `companies_to_skip`, `keywords_to_avoid` |
 | `config/job_titles.py` | What to search for (copy from `job_titles.example.py`) | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `MAX_APPLICATIONS_PER_RUN` |
 | `config/settings.py` | Agent behavior (copy from `settings.example.py`) | `HEADLESS`, `MAX_AGENT_STEPS`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
@@ -197,18 +185,15 @@ The agent has 8 custom actions beyond standard browser interaction:
 |----------|---------------|---------|
 | OpenAI | `gpt-4.1`, `gpt-4.1-mini` | `pip install langchain-openai` |
 | Anthropic | `claude-sonnet-4-5-20250929` | `pip install langchain-anthropic` |
-| Google | `gemini-2.5-flash` | `pip install langchain-google-genai` |
+| Google | `gemini-2.5-flash`, `gemini-3-flash-preview` | Gemini API (default) or Vertex AI (`USE_VERTEX_AI=true` + `GCP_PROJECT` in `.env`) |
 | Ollama (local) | `llama3.1:70b`, `qwen2.5:7b` | `pip install langchain-ollama` |
 
 The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the others if needed.
 
 ## Tips
 
-- **Start with `--dry-run`** to see the exact prompts the agent will use before spending API credits
-- **Use `--review`** on your first runs to verify the agent fills forms correctly before it submits
-- **Use `--keep-alive`** to keep your browser tabs open after everything is done
-- **Use `--initial-actions`** once you're comfortable — it skips LLM navigation and saves tokens
-- **Watch the first run** with the browser visible (`HEADLESS = False`) to see how the agent navigates and catch any issues
+- **First run?** Just run `python main.py` — the interactive menu guides you through everything
+- **Watch the first run** with the browser visible to see how the agent navigates and catch any issues
 - **Keep `MIN_SKILL_MATCH_RATIO` low** (0.2-0.3) if you want more applications, raise it (0.5+) to be selective
 - **Fill in your profile thoroughly** — the more data the agent has, the better it answers screening questions
 - **Use a Chrome profile** with saved logins to avoid authentication issues entirely
@@ -226,3 +211,4 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 | Agent loops or gets stuck | Lower `MAX_AGENT_STEPS` in `config/settings.py`, or try a stronger model |
 | `ModuleNotFoundError` for a provider | Install the missing provider: `pip install langchain-ollama` (etc.) |
 | Chrome profile locked | Close all Chrome windows before running — Chrome locks its profile dir |
+| Interrupted mid-run | Press Ctrl+C (browser tabs stay open), then run `python main.py` again — the menu will offer to resume |

@@ -242,3 +242,40 @@ def load_applied_urls() -> set[str]:
                     urls.add(row["url"])
 
     return urls
+
+
+# ── Progress tracking (for --resume) ──────────────────────────────
+
+
+def _progress_path() -> Path:
+    return _ensure_output_dir() / "progress.json"
+
+
+def load_progress() -> dict:
+    """Load saved progress from the last interrupted run.
+
+    Returns a dict with:
+        search_index: index of the search that was in progress (0-based)
+        listings_reviewed: number of listings reviewed in that search
+    """
+    path = _progress_path()
+    if path.exists():
+        return json.loads(path.read_text())
+    return {}
+
+
+def save_progress(search_index: int, listings_reviewed: int) -> None:
+    """Save current progress so it can be resumed later."""
+    data = {
+        "search_index": search_index,
+        "listings_reviewed": listings_reviewed,
+        "saved_at": datetime.now().isoformat(),
+    }
+    _progress_path().write_text(json.dumps(data, indent=2))
+
+
+def clear_progress() -> None:
+    """Remove the progress file after a successful run completes."""
+    path = _progress_path()
+    if path.exists():
+        path.unlink()

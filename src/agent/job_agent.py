@@ -24,13 +24,16 @@ from config.settings import (
     RESUME_PATH,
     RESUME_PDF_PATH,
 )
-from src.agent.actions import controller, set_llm
+from src.agent.actions import controller, set_current_search_index, set_llm
 from src.models.schemas import RunSummary, TokenUsage
 from src.utils.output import (
     accumulate_tokens,
+    clear_progress,
     finalize_run_summary,
     init_run_summary,
     load_applied_urls,
+    load_progress,
+    save_progress,
 )
 
 
@@ -55,7 +58,7 @@ def _browser_kwargs(*, keep_alive: bool = False) -> dict:
     return kwargs
 
 
-def _build_linkedin_search_url(search: dict) -> str:
+def _build_linkedin_search_url(search: dict, *, start: int = 0) -> str:
     """Construct a LinkedIn Jobs search URL with all filters as query params."""
     params: dict[str, str] = {
         "keywords": search["title"],
@@ -82,6 +85,9 @@ def _build_linkedin_search_url(search: dict) -> str:
     if search.get("remote_only"):
         params["f_WT"] = "2"
 
+    if start > 0:
+        params["start"] = str(start)
+
     return "https://www.linkedin.com/jobs/search/?" + urlencode(params)
 
 
@@ -92,20 +98,20 @@ def _build_linkedin_search_url(search: dict) -> str:
 _INITIAL_ACTIONS_BUILDERS: dict[str, callable] = {}
 
 
-def _linkedin_initial_actions(search: dict) -> list[dict]:
-    url = _build_linkedin_search_url(search)
+def _linkedin_initial_actions(search: dict, *, start: int = 0) -> list[dict]:
+    url = _build_linkedin_search_url(search, start=start)
     return [{"navigate": {"url": url, "new_tab": False}}]
 
 
 _INITIAL_ACTIONS_BUILDERS["linkedin"] = _linkedin_initial_actions
 
 
-def _build_initial_actions(search: dict) -> list[dict] | None:
+def _build_initial_actions(search: dict, *, start: int = 0) -> list[dict] | None:
     """Return initial_actions for the current job board, or None if unsupported."""
     board = job_titles.JOB_BOARDS[0] if job_titles.JOB_BOARDS else "linkedin"
     builder = _INITIAL_ACTIONS_BUILDERS.get(board)
     if builder:
-        return builder(search)
+        return builder(search, start=start)
     return None
 
 
@@ -344,6 +350,7 @@ async def run_job_search(
     keep_alive: bool = False,
     use_initial_actions: bool = False,
     review_before_submit: bool = False,
+    resume_run: bool = False,
 ) -> RunSummary:
     """Run the full job-search-and-apply pipeline.
 
@@ -358,6 +365,8 @@ async def run_job_search(
         When *True*, navigate to the search results page via browser-use
         ``initial_actions`` instead of letting the LLM handle it.  Saves
         tokens but requires a supported job board (currently LinkedIn).
+    resume_run:
+        When *True*, resume from the last saved progress point.
 
     Returns
     -------
@@ -368,19 +377,46 @@ async def run_job_search(
     summary = init_run_summary()
     browser_kw = _browser_kwargs(keep_alive=keep_alive)
 
-    for search in searches:
+    # Determine where to resume from
+    start_search_index = 0
+    resume_offset = 0
+    if resume_run:
+        progress = load_progress()
+        if progress:
+            start_search_index = progress.get("search_index", 0)
+            resume_offset = progress.get("listings_reviewed", 0)
+            print(f"  Resuming from search #{start_search_index + 1}, "
+                  f"skipping first {resume_offset} listings")
+        else:
+            print("  No saved progress found — starting from the beginning")
+
+    for idx, search in enumerate(searches):
+        if idx < start_search_index:
+            print(f"\n  Skipping completed search: {search['title']} — {search['location']}")
+            continue
+
+        # On the resumed search, use the offset; subsequent searches start fresh
+        listing_offset = resume_offset if idx == start_search_index and resume_run else 0
+
         print(f"\n{'='*60}")
         print(f"  Searching: {search['title']} — {search['location']}")
+        if listing_offset > 0:
+            print(f"  (resuming from listing #{listing_offset + 1})")
         print(f"{'='*60}\n")
 
         initial_actions = (
-            _build_initial_actions(search) if use_initial_actions else None
+            _build_initial_actions(search, start=listing_offset)
+            if use_initial_actions
+            else None
         )
         task = _build_task_prompt(
             search,
             use_initial_actions=initial_actions is not None,
             review_before_submit=review_before_submit,
         )
+
+        # Track which search we're on so actions can save progress
+        set_current_search_index(idx)
 
         # Each Agent gets its own Browser so its lifecycle (start/kill)
         # is self-contained — browser_use 0.11.x kills the browser
@@ -404,10 +440,19 @@ async def run_job_search(
         # Accumulate token usage and flush to disk
         accumulate_tokens(history.usage)
 
+        # Save progress: this search is done, next search starts fresh
+        save_progress(
+            search_index=idx + 1,
+            listings_reviewed=0,
+        )
+
         print(f"\n--- Search complete: {search['title']} ---")
         result = history.final_result()
         if result:
             print(f"Agent summary: {result[:500]}")
+
+    # All searches completed successfully — clear progress
+    clear_progress()
 
     # Print token usage summary
     t = summary.token_usage
