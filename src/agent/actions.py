@@ -354,7 +354,9 @@ def ask_human(message: str) -> ActionResult:
 
 @controller.action(
     "Generate a tailored cover letter for a job. Provide the job_title, company, "
-    "location, and the full job_description. Returns the cover letter text."
+    "location, and the full job_description. Returns the cover letter text. "
+    "IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste the "
+    "returned text directly into the cover letter text field on the application page."
 )
 async def make_cover_letter(
     job_title: str,
@@ -380,4 +382,15 @@ async def make_cover_letter(
         description=job_description,
     )
     letter = await generate_cover_letter(_llm, job, resume_text)
-    return ActionResult(extracted_content=letter)
+
+    # Save cover letter to file immediately (don't rely on save_application)
+    from src.utils.output import save_cover_letter_to_file
+    save_cover_letter_to_file(job_title, company, letter)
+
+    return ActionResult(
+        extracted_content=(
+            f"Cover letter generated and saved. "
+            f"PASTE the following text into the cover letter text field "
+            f"(do NOT upload as a file):\n\n{letter}"
+        )
+    )

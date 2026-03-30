@@ -7,25 +7,9 @@ from __future__ import annotations
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from config.cover_letter_prompt import COVER_LETTER_PROMPT
 from config.profile import PROFILE
 from src.models.schemas import JobListing
-
-_SYSTEM_PROMPT = """\
-You are an expert career coach writing a cover letter.
-
-Rules:
-- Keep it under 350 words.
-- Be specific: reference the company name, role, and 2-3 requirements from the
-  job description that align with the candidate's background.
-- Use a professional but warm tone.  No clichés like "I am writing to express
-  my interest" or "passionate about".
-- Structure: opening hook → relevant experience (2 paragraphs) → closing with
-  enthusiasm and availability.
-- Do NOT fabricate experience.  Only reference skills and history from the
-  resume and profile provided.
-- Output ONLY the cover letter body text.  No subject line, no "Dear Hiring
-  Manager" header, no sign-off — the application portal adds those.
-"""
 
 
 async def generate_cover_letter(
@@ -58,7 +42,7 @@ Write the cover letter now.
 
     response = await llm.ainvoke(
         [
-            SystemMessage(content=_SYSTEM_PROMPT),
+            SystemMessage(content=COVER_LETTER_PROMPT),
             HumanMessage(content=user_prompt),
         ]
     )

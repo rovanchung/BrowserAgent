@@ -130,14 +130,19 @@ def save_cover_letter_file(record: ApplicationRecord) -> Path | None:
     if not cover_letter:
         return None
 
+    return save_cover_letter_to_file(record.job.title, record.job.company, cover_letter)
+
+
+def save_cover_letter_to_file(job_title: str, company: str, cover_letter: str) -> Path:
+    """Save cover letter text to output/cover_letters/ and return the path."""
     cl_dir = _ensure_output_dir() / "cover_letters"
     cl_dir.mkdir(exist_ok=True)
 
     safe_company = "".join(
-        c if c.isalnum() or c in " _-" else "_" for c in record.job.company
+        c if c.isalnum() or c in " _-" else "_" for c in company
     )
     safe_title = "".join(
-        c if c.isalnum() or c in " _-" else "_" for c in record.job.title
+        c if c.isalnum() or c in " _-" else "_" for c in job_title
     )
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{safe_company}_{safe_title}_{timestamp}.txt"

@@ -203,7 +203,7 @@ For each qualified job:
 2. Fill all form fields using the profile data.  For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
 4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
-5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  Use the returned text as the cover letter.  Add it to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
+5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  **IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste/type the returned text directly into the cover letter text field on the page.**  If there is no text field and only a file upload for the cover letter, skip the cover letter.  Add the cover letter text to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
 6. Review the filled form for accuracy.{"  Then call `ask_human` with a summary of the job (title, company, URL) and all your filled answers so the human can approve or reject before submitting.  If rejected, call `save_skipped_job` with reason 'human_rejected' and move on." if review_before_submit else ""}  Then submit.
 7. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
 8. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.  If the human skips, call `save_skipped_job` with the appropriate reason and move on.
@@ -211,6 +211,7 @@ For each qualified job:
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
+- NEVER upload a cover letter as a file. Always type/paste cover letter text directly into the text field.
 - NEVER ignore a SKIP result from `check_company` or `check_job_description`. When these tools say SKIP, you MUST call `save_skipped_job` and move on. Applying to a blocked job is a critical failure.
 - Do NOT skip a job just because it lacks an "Easy Apply" button. Apply to all qualified jobs regardless of the application method.
 - When a form field doesn't match any profile or resume data, leave it blank or call `ask_human`.
@@ -260,7 +261,7 @@ NEVER guess or fabricate personal details. If unsure of a value, call `get_profi
 2. Fill all form fields using the profile data. For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
 4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
-5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  Use the returned text as the cover letter.  Add it to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
+5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  **IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste/type the returned text directly into the cover letter text field on the page.**  If there is no text field and only a file upload for the cover letter, skip the cover letter.  Add the cover letter text to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
 6. Review the filled form for accuracy.{"  Then call `ask_human` with a summary of the job (title, company, URL) and all your filled answers so the human can approve or reject before submitting.  If rejected, call `save_skipped_job` with reason 'human_rejected' and stop." if review_before_submit else ""}  Then submit.
 7. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
 8. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.
@@ -268,6 +269,7 @@ NEVER guess or fabricate personal details. If unsure of a value, call `get_profi
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
+- NEVER upload a cover letter as a file. Always type/paste cover letter text directly into the text field.
 - NEVER ignore a SKIP result from `check_company` or `check_job_description`. When these tools say SKIP, you MUST call `save_skipped_job` and stop. Applying to a blocked job is a critical failure.
 - Do NOT skip a job just because it lacks an "Easy Apply" button. Apply to all qualified jobs regardless of the application method.
 - When a form field doesn't match any profile or resume data, leave it blank or call `ask_human`.
