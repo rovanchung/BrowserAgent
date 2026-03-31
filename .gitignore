@@ -11,10 +11,7 @@ venv/
 .env
 
 # Output (tracked applications — don't commit personal data)
-output/applications.json
-output/applications.csv
-output/cover_letters/
-output/run_*.json
+output/
 
 # OS
 .DS_Store
