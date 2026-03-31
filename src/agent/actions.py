@@ -67,6 +67,7 @@ from src.utils.output import (
     save_progress,
     save_record,
 )
+from src.utils.pause import wait_if_paused
 
 # Module-level LLM reference, set by job_agent before running.
 _llm = None
@@ -134,6 +135,7 @@ def _add_company_skip_entry(job_title: str, company: str) -> None:
 @controller.action("Read the candidate's resume from disk", param_model=_NoParams)
 def read_resume() -> ActionResult:
     """Return the full text of the resume file."""
+    wait_if_paused()
     path = RESUME_PATH
     if not path.exists():
         return ActionResult(
@@ -146,12 +148,15 @@ def read_resume() -> ActionResult:
 
 
 @controller.action(
-    "Get the absolute file path of the candidate's resume PDF for uploading to file input fields. "
-    "Call this whenever you need to upload a resume file.",
+    "Get the absolute file path of the candidate's resume PDF. "
+    "After calling this, use the built-in `upload_file` action with the returned path "
+    "and the index of the file input element to upload the resume. "
+    "Do NOT click the upload button — that opens an OS dialog the agent cannot control.",
     param_model=_NoParams,
 )
 def get_resume_file_path() -> ActionResult:
     """Return the absolute path to the candidate's resume PDF."""
+    wait_if_paused()
     path = RESUME_PDF_PATH
     if not path.exists():
         return ActionResult(
@@ -159,12 +164,17 @@ def get_resume_file_path() -> ActionResult:
             "Please place your resume.pdf in the resume/ folder.",
             error=f"Resume PDF not found: {path}",
         )
-    return ActionResult(extracted_content=str(path.resolve()))
+    return ActionResult(
+        extracted_content=f"{path.resolve()}\n\n"
+        "USE the `upload_file` action with this path and the file input element index. "
+        "Do NOT click the upload/browse button — it opens an OS dialog you cannot interact with."
+    )
 
 
 @controller.action("Get the candidate's personal profile for filling application forms", param_model=_NoParams)
 def get_profile() -> ActionResult:
     """Return the full candidate profile as JSON."""
+    wait_if_paused()
     return ActionResult(extracted_content=json.dumps(PROFILE, indent=2))
 
 
@@ -174,6 +184,7 @@ def get_profile() -> ActionResult:
 )
 def answer_screening_question(question: str) -> ActionResult:
     """Return the profile and resume so the agent can answer any screening question."""
+    wait_if_paused()
     resume_text = ""
     if RESUME_PATH.exists():
         resume_text = RESUME_PATH.read_text(encoding="utf-8")
@@ -209,6 +220,7 @@ def save_application(
     screening_answers: str = "{}",
 ) -> ActionResult:
     """Persist a successful application to the output log."""
+    wait_if_paused()
     try:
         answers = json.loads(screening_answers)
     except (json.JSONDecodeError, TypeError):
@@ -260,6 +272,7 @@ def save_skipped_job(
     notes: str = "",
 ) -> ActionResult:
     """Persist a skipped-job record to the output log."""
+    wait_if_paused()
     reason_map = {v.value: v for v in SkipReason}
     skip_reason = reason_map.get(reason, SkipReason.UNKNOWN)
 
@@ -296,6 +309,7 @@ def check_company(company_name: str, job_title: str = "") -> ActionResult:
     Each entry in companies_to_skip uses the format ``"title_pattern:company_pattern"``.
     A title_pattern of ``*`` matches any job title at that company.
     """
+    wait_if_paused()
     tol = SKIP_MATCH_TOLERANCE
     company_lower = company_name.lower()
     title_lower = job_title.lower()
@@ -324,6 +338,7 @@ def check_company(company_name: str, job_title: str = "") -> ActionResult:
 )
 def check_job_description(description: str) -> ActionResult:
     """Screen a job description against blocked keywords."""
+    wait_if_paused()
     desc_lower = description.lower()
     for kw in PROFILE.get("keywords_to_avoid", []):
         if kw.lower() in desc_lower:
@@ -343,6 +358,7 @@ def check_job_description(description: str) -> ActionResult:
 )
 def ask_human(message: str) -> ActionResult:
     """Pause and ask the user for input."""
+    wait_if_paused()
     print(f"\n{'='*60}")
     print(f"AGENT NEEDS HELP: {message}")
     print(f"{'='*60}")
@@ -365,6 +381,7 @@ async def make_cover_letter(
     job_description: str,
 ) -> ActionResult:
     """Use the dedicated cover-letter generator to produce a tailored letter."""
+    wait_if_paused()
     if _llm is None:
         return ActionResult(
             extracted_content="ERROR: LLM not available for cover letter generation.",

@@ -132,6 +132,7 @@ def _print_banner() -> None:
     print(
         f"  Mode: {'headless' if __import__('config.settings', fromlist=['HEADLESS']).HEADLESS else 'visible browser'}"
     )
+    print("  Keys: Ctrl+C quit | Ctrl+Z pause/resume")
     print()
 
 
@@ -179,11 +180,11 @@ async def main() -> None:
         print("=== DRY RUN — Task prompts ===\n")
         if args.url:
             print(f"--- Direct apply: {args.url} ---")
-            print(_build_apply_prompt(args.url))
+            print(_build_apply_prompt(args.url, review_before_submit=args.review))
         else:
             for search in job_titles.SEARCHES:
                 print(f"--- Search: {search['title']} in {search['location']} ---")
-                print(_build_task_prompt(search))
+                print(_build_task_prompt(search, review_before_submit=args.review))
                 print()
         return
 
@@ -222,4 +223,9 @@ if __name__ == "__main__":
     # Ctrl+C: force-exit immediately so Playwright's cleanup hooks
     # don't get a chance to close the browser tabs.
     signal.signal(signal.SIGINT, lambda *_: os._exit(130))
+
+    # Ctrl+Z: toggle pause/resume instead of default job-control stop.
+    from src.utils.pause import toggle_pause
+    signal.signal(signal.SIGTSTP, toggle_pause)
+
     asyncio.run(main())

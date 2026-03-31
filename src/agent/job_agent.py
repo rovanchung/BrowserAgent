@@ -25,6 +25,7 @@ from config.settings import (
     RESUME_PDF_PATH,
 )
 from src.agent.actions import controller, set_current_search_index, set_llm
+from src.utils.pause import wait_if_paused
 from src.models.schemas import RunSummary, TokenUsage
 from src.utils.output import (
     accumulate_tokens,
@@ -202,24 +203,33 @@ For each qualified job:
 1. Click the application button.
 2. Fill all form fields using the profile data.  For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
-4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
+4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path, then use the built-in `upload_file` action with that path and the file input element's index. Do NOT click the upload/browse button (it opens an OS dialog the agent cannot control). Do NOT generate your own resume — always use the file from `get_resume_file_path`.
 5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  **IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste/type the returned text directly into the cover letter text field on the page.**  If there is no text field and only a file upload for the cover letter, skip the cover letter.  Add the cover letter text to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
-6. Review the filled form for accuracy.{"  Then call `ask_human` with a summary of the job (title, company, URL) and all your filled answers so the human can approve or reject before submitting.  If rejected, call `save_skipped_job` with reason 'human_rejected' and move on." if review_before_submit else ""}  Then submit.
-7. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
-8. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.  If the human skips, call `save_skipped_job` with the appropriate reason and move on.
+6. Review the filled form for accuracy.
+{"7. **STOP — MANDATORY HUMAN REVIEW:** Call `ask_human` now. Include: job title, company, URL, and every screening question + answer. DO NOT proceed to submit until the human approves. If rejected, call `save_skipped_job` with reason 'human_rejected' and move on." if review_before_submit else "7."} Then submit the application.
+8. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
+9. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.  If the human skips, call `save_skipped_job` with the appropriate reason and move on.
 
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
+- NEVER click an upload/browse button to upload files. Always use the `upload_file` action with the file input element's index — clicking opens an OS dialog the agent cannot control.
 - NEVER upload a cover letter as a file. Always type/paste cover letter text directly into the text field.
 - NEVER ignore a SKIP result from `check_company` or `check_job_description`. When these tools say SKIP, you MUST call `save_skipped_job` and move on. Applying to a blocked job is a critical failure.
+{"- NEVER submit an application without first calling `ask_human` for human review and approval." if review_before_submit else ""}
 - Do NOT skip a job just because it lacks an "Easy Apply" button. Apply to all qualified jobs regardless of the application method.
 - When a form field doesn't match any profile or resume data, leave it blank or call `ask_human`.
 - If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
 - After each successful application, count how many you've completed.  Stop after {max_apply} successful applications.
 - Be methodical: open each job in sequence, don't rush.
 - Search query for logging: "{search['title']} in {search['location']}"
-"""
+{"" if not review_before_submit else '''
+## HUMAN REVIEW MODE IS ON
+You MUST call `ask_human` BEFORE submitting EVERY application.
+Include the job title, company, URL, and all screening answers in your message.
+Wait for approval. If the human says no, call `save_skipped_job` and move on.
+Submitting without calling `ask_human` first is a CRITICAL FAILURE.
+'''}"""
 
 
 def _build_apply_prompt(url: str, *, review_before_submit: bool = False) -> str:
@@ -260,21 +270,30 @@ NEVER guess or fabricate personal details. If unsure of a value, call `get_profi
 1. Click the application button.
 2. Fill all form fields using the profile data. For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
-4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path to the candidate's resume PDF, then upload that file. Do NOT generate or create your own resume — always use the file from `get_resume_file_path`.
+4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path, then use the built-in `upload_file` action with that path and the file input element's index. Do NOT click the upload/browse button (it opens an OS dialog the agent cannot control). Do NOT generate your own resume — always use the file from `get_resume_file_path`.
 5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  **IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste/type the returned text directly into the cover letter text field on the page.**  If there is no text field and only a file upload for the cover letter, skip the cover letter.  Add the cover letter text to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
-6. Review the filled form for accuracy.{"  Then call `ask_human` with a summary of the job (title, company, URL) and all your filled answers so the human can approve or reject before submitting.  If rejected, call `save_skipped_job` with reason 'human_rejected' and stop." if review_before_submit else ""}  Then submit.
-7. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
-8. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.
+6. Review the filled form for accuracy.
+{"7. **MANDATORY REVIEW STEP — DO NOT SKIP:** Before clicking submit, you MUST call `ask_human` with a summary including: job title, company, URL, and ALL filled answers/screening questions. Wait for the human to approve. If the human rejects, call `save_skipped_job` with reason 'human_rejected' and stop. NEVER submit without human approval." if review_before_submit else "7."}  Then submit the application.
+8. After submitting, call `save_application` with all job details and pass `screening_answers` as a JSON string mapping each question to its answer (including the cover letter if one was generated).
+9. If you encounter a CAPTCHA, login wall, or any blocker you cannot handle, call `ask_human` for help.
 
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
+- NEVER click an upload/browse button to upload files. Always use the `upload_file` action with the file input element's index — clicking opens an OS dialog the agent cannot control.
 - NEVER upload a cover letter as a file. Always type/paste cover letter text directly into the text field.
 - NEVER ignore a SKIP result from `check_company` or `check_job_description`. When these tools say SKIP, you MUST call `save_skipped_job` and stop. Applying to a blocked job is a critical failure.
+{"- NEVER submit an application without first calling `ask_human` for human review and approval." if review_before_submit else ""}
 - Do NOT skip a job just because it lacks an "Easy Apply" button. Apply to all qualified jobs regardless of the application method.
 - When a form field doesn't match any profile or resume data, leave it blank or call `ask_human`.
 - If the site asks you to log in first, call `ask_human` with a message asking the user to log in.
-"""
+{"" if not review_before_submit else '''
+## HUMAN REVIEW MODE IS ON
+You MUST call `ask_human` BEFORE submitting the application.
+Include the job title, company, URL, and all screening answers in your message.
+Wait for approval. If the human says no, call `save_skipped_job` and stop.
+Submitting without calling `ask_human` first is a CRITICAL FAILURE.
+'''}"""
 
 
 async def run_single_apply(
@@ -399,6 +418,9 @@ async def run_job_search(
 
         # On the resumed search, use the offset; subsequent searches start fresh
         listing_offset = resume_offset if idx == start_search_index and resume_run else 0
+
+        # Honour pause/resume between searches
+        wait_if_paused()
 
         print(f"\n{'='*60}")
         print(f"  Searching: {search['title']} — {search['location']}")

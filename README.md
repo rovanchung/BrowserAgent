@@ -199,6 +199,13 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 - **Use a Chrome profile** with saved logins to avoid authentication issues entirely
 - **Local models** (Ollama) work but have noticeably lower success rates on complex multi-page forms — use 70B+ parameter models for best results
 
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+Z` | Pause/resume the agent — the agent finishes its current action, then waits until you press `Ctrl+Z` again |
+| `Ctrl+C` | Quit immediately — browser tabs stay open so you can inspect the page; resume later with `--resume` |
+
 ## Troubleshooting
 
 | Problem | Solution |
@@ -211,4 +218,5 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 | Agent loops or gets stuck | Lower `MAX_AGENT_STEPS` in `config/settings.py`, or try a stronger model |
 | `ModuleNotFoundError` for a provider | Install the missing provider: `pip install langchain-ollama` (etc.) |
 | Chrome profile locked | Close all Chrome windows before running — Chrome locks its profile dir |
-| Interrupted mid-run | Press Ctrl+C (browser tabs stay open), then run `python main.py` again — the menu will offer to resume |
+| Want to pause temporarily | Press `Ctrl+Z` to pause; press `Ctrl+Z` again to resume |
+| Interrupted mid-run | Press `Ctrl+C` (browser tabs stay open), then run `python main.py` again — the menu will offer to resume |
