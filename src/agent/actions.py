@@ -8,11 +8,14 @@ interaction — saving data, reading local files, asking the human, etc.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 
 from browser_use import ActionResult, Agent, Controller
 from pydantic import BaseModel, ConfigDict
+
+logger = logging.getLogger(__name__)
 
 from config.profile import PROFILE
 from config.settings import PROJECT_ROOT, RESUME_PATH, RESUME_PDF_PATH, SKIP_MATCH_TOLERANCE
@@ -151,7 +154,9 @@ def read_resume() -> ActionResult:
     "Get the absolute file path of the candidate's resume PDF. "
     "After calling this, use the built-in `upload_file` action with the returned path "
     "and the index of the file input element to upload the resume. "
-    "Do NOT click the upload button — that opens an OS dialog the agent cannot control.",
+    "If `upload_file` fails, use `upload_resume` instead — it finds the file input "
+    "automatically. Do NOT click the upload button — that opens an OS dialog the agent "
+    "cannot control.",
     param_model=_NoParams,
 )
 def get_resume_file_path() -> ActionResult:
@@ -167,8 +172,98 @@ def get_resume_file_path() -> ActionResult:
     return ActionResult(
         extracted_content=f"{path.resolve()}\n\n"
         "USE the `upload_file` action with this path and the file input element index. "
+        "If upload_file fails with 'not a file input' error, use `upload_resume` instead. "
         "Do NOT click the upload/browse button — it opens an OS dialog you cannot interact with."
     )
+
+
+@controller.action(
+    "Upload the candidate's resume PDF to a file input on the page. "
+    "This action automatically finds the first file input element (even hidden ones) "
+    "and uploads the resume to it via CDP. Use this when the built-in `upload_file` "
+    "action fails with 'not a file input' errors. "
+    "Do NOT click the upload button — that opens an OS dialog the agent cannot control.",
+    param_model=_NoParams,
+)
+async def upload_resume(browser_session) -> ActionResult:
+    """Find any file input on the page and upload the resume PDF via CDP."""
+    wait_if_paused()
+    path = RESUME_PDF_PATH
+    if not path.exists():
+        return ActionResult(
+            extracted_content=f"ERROR: Resume PDF not found at {path}.",
+            error=f"Resume PDF not found: {path}",
+        )
+
+    try:
+        # Use JavaScript to find the file input's backend node ID via CDP
+        cdp_session = await browser_session.get_or_create_cdp_session()
+        cdp = cdp_session.cdp_client
+        sid = cdp_session.session_id
+
+        # Find a file input element on the page using JS
+        result = await cdp.send.Runtime.evaluate(
+            params={
+                "expression": """
+                    (() => {
+                        const el = document.querySelector('input[type="file"]');
+                        if (!el) return null;
+                        return true;
+                    })()
+                """,
+            },
+            session_id=sid,
+        )
+        if not result.get("result", {}).get("value"):
+            return ActionResult(
+                extracted_content="ERROR: No file input element found on this page. "
+                "The upload area may use drag-and-drop only. Try a different approach.",
+                error="No <input type='file'> found on page.",
+            )
+
+        # Use DOM.querySelector to get the backend node ID
+        doc_result = await cdp.send.DOM.getDocument(
+            params={"depth": 0}, session_id=sid
+        )
+        root_node_id = doc_result["root"]["nodeId"]
+        query_result = await cdp.send.DOM.querySelector(
+            params={
+                "nodeId": root_node_id,
+                "selector": 'input[type="file"]',
+            },
+            session_id=sid,
+        )
+        node_id = query_result.get("nodeId", 0)
+        if not node_id:
+            return ActionResult(
+                extracted_content="ERROR: Could not locate file input node in DOM.",
+                error="DOM.querySelector returned nodeId 0.",
+            )
+
+        # Resolve to backend node ID
+        desc = await cdp.send.DOM.describeNode(
+            params={"nodeId": node_id}, session_id=sid
+        )
+        backend_node_id = desc["node"]["backendNodeId"]
+
+        # Upload the file
+        await cdp.send.DOM.setFileInputFiles(
+            params={
+                "files": [str(path.resolve())],
+                "backendNodeId": backend_node_id,
+            },
+            session_id=sid,
+        )
+        msg = f"Successfully uploaded resume ({path.name}) to file input via CDP."
+        logger.info(f"📁 {msg}")
+        return ActionResult(extracted_content=msg)
+
+    except Exception as e:
+        logger.error(f"upload_resume failed: {e}")
+        return ActionResult(
+            extracted_content=f"ERROR: Failed to upload resume: {e}",
+            error=str(e),
+        )
 
 
 @controller.action("Get the candidate's personal profile for filling application forms", param_model=_NoParams)

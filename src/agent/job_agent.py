@@ -203,7 +203,7 @@ For each qualified job:
 1. Click the application button.
 2. Fill all form fields using the profile data.  For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
-4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path, then use the built-in `upload_file` action with that path and the file input element's index. Do NOT click the upload/browse button (it opens an OS dialog the agent cannot control). Do NOT generate your own resume — always use the file from `get_resume_file_path`.
+4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path, then use the built-in `upload_file` action with that path and the file input element's index. If `upload_file` fails with a "not a file input" error, use the `upload_resume` action instead — it automatically finds the file input and uploads via CDP. Do NOT click the upload/browse button (it opens an OS dialog the agent cannot control). Do NOT generate your own resume — always use the file from `get_resume_file_path`.
 5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  **IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste/type the returned text directly into the cover letter text field on the page.**  If there is no text field and only a file upload for the cover letter, skip the cover letter.  Add the cover letter text to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
 6. Review the filled form for accuracy.
 {"7. **STOP — MANDATORY HUMAN REVIEW:** Call `ask_human` now. Include: job title, company, URL, and every screening question + answer. DO NOT proceed to submit until the human approves. If rejected, call `save_skipped_job` with reason 'human_rejected' and move on." if review_before_submit else "7."} Then submit the application.
@@ -213,7 +213,7 @@ For each qualified job:
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
-- NEVER click an upload/browse button to upload files. Always use the `upload_file` action with the file input element's index — clicking opens an OS dialog the agent cannot control.
+- NEVER click an upload/browse button to upload files. Always use the `upload_file` action with the file input element's index — clicking opens an OS dialog the agent cannot control. If `upload_file` fails, use `upload_resume` as a fallback.
 - NEVER upload a cover letter as a file. Always type/paste cover letter text directly into the text field.
 - NEVER ignore a SKIP result from `check_company` or `check_job_description`. When these tools say SKIP, you MUST call `save_skipped_job` and move on. Applying to a blocked job is a critical failure.
 {"- NEVER submit an application without first calling `ask_human` for human review and approval." if review_before_submit else ""}
@@ -270,7 +270,7 @@ NEVER guess or fabricate personal details. If unsure of a value, call `get_profi
 1. Click the application button.
 2. Fill all form fields using the profile data. For screening questions, call `answer_screening_question` with the full question text.  The action returns both the candidate profile AND resume so you can answer questions that aren't directly in the profile.
 3. **Track every screening question and your answer** as a key-value pair (question text → answer text).  You will pass these to `save_application` later.
-4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path, then use the built-in `upload_file` action with that path and the file input element's index. Do NOT click the upload/browse button (it opens an OS dialog the agent cannot control). Do NOT generate your own resume — always use the file from `get_resume_file_path`.
+4. When a file upload field appears for the resume, call `get_resume_file_path` to get the absolute path, then use the built-in `upload_file` action with that path and the file input element's index. If `upload_file` fails with a "not a file input" error, use the `upload_resume` action instead — it automatically finds the file input and uploads via CDP. Do NOT click the upload/browse button (it opens an OS dialog the agent cannot control). Do NOT generate your own resume — always use the file from `get_resume_file_path`.
 5. If the application asks for a cover letter, call `make_cover_letter` with the job_title, company, location, and full job_description.  **IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste/type the returned text directly into the cover letter text field on the page.**  If there is no text field and only a file upload for the cover letter, skip the cover letter.  Add the cover letter text to your screening answers dict with the exact form label as the key (e.g. "Cover Letter").
 6. Review the filled form for accuracy.
 {"7. **MANDATORY REVIEW STEP — DO NOT SKIP:** Before clicking submit, you MUST call `ask_human` with a summary including: job title, company, URL, and ALL filled answers/screening questions. Wait for the human to approve. If the human rejects, call `save_skipped_job` with reason 'human_rejected' and stop. NEVER submit without human approval." if review_before_submit else "7."}  Then submit the application.
@@ -280,7 +280,7 @@ NEVER guess or fabricate personal details. If unsure of a value, call `get_profi
 ## Important Rules
 - NEVER fabricate information. Only use data from the resume and profile.
 - NEVER generate your own resume file. Always use `get_resume_file_path` to get the candidate's actual resume for upload.
-- NEVER click an upload/browse button to upload files. Always use the `upload_file` action with the file input element's index — clicking opens an OS dialog the agent cannot control.
+- NEVER click an upload/browse button to upload files. Always use the `upload_file` action with the file input element's index — clicking opens an OS dialog the agent cannot control. If `upload_file` fails, use `upload_resume` as a fallback.
 - NEVER upload a cover letter as a file. Always type/paste cover letter text directly into the text field.
 - NEVER ignore a SKIP result from `check_company` or `check_job_description`. When these tools say SKIP, you MUST call `save_skipped_job` and stop. Applying to a blocked job is a critical failure.
 {"- NEVER submit an application without first calling `ask_human` for human review and approval." if review_before_submit else ""}
