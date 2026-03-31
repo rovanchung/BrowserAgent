@@ -6,69 +6,13 @@ Built on [Browser Use](https://github.com/browser-use/browser-use), an open-sour
 
 ## How It Works
 
-```
-You fill in config files (profile, resume, job titles)
-    |
-    v
-Agent opens a real browser and navigates to job boards
-    |
-    v
-For each search: finds listings → reads descriptions → checks qualifications
-    |
-    v
-Qualified jobs: fills application forms, answers screening questions,
-generates a cover letter, uploads resume, submits
-    |
-    v
-Everything logged to output/ (JSON/CSV + individual cover letter files)
-```
+1. **You configure** your profile, resume, and target job titles in a few config files.
+2. **The agent opens a real browser**, navigates to LinkedIn (or other job boards), and searches for your target roles.
+3. **For each listing**, it reads the job description, checks your skills against the requirements, and skips jobs that don't match (or hit your block list).
+4. **For qualified jobs**, it fills out the application form, answers screening questions using your profile, generates a cover letter, uploads your resume, and submits.
+5. **Everything is logged** to `output/` — a JSON/CSV record of every application, individual cover letter files, and a per-run summary with token costs.
 
-The agent reads your **profile dictionary** in `config/profile.py` and uses it — along with your resume — to answer screening questions. When it hits something it can't handle (CAPTCHA, ambiguous question, login wall), it pauses and asks you.
-
-## Project Structure
-
-```
-BrowserAgent/
-├── main.py                          # Entry point — CLI with flags or interactive menu
-├── setup.sh                         # Interactive setup wizard (6-step)
-├── .env                             # Your API key (create from .env.example)
-├── requirements.txt
-│
-├── config/
-│   ├── profile.example.py           # Template — copy to profile.py and fill in
-│   ├── job_titles.example.py        # Template — copy to job_titles.py and customize
-│   ├── settings.example.py          # Template — copy to settings.py and adjust
-│   ├── cover_letter_prompt.py       # System prompt for cover letter generation
-│   └── pricing.py                   # API token pricing table for cost tracking
-│
-├── resume/
-│   └── resume.pdf                   # Your resume (PDF — text extracted automatically)
-│
-├── src/
-│   ├── agent/
-│   │   ├── actions.py               # 10 custom actions the agent can call
-│   │   ├── job_agent.py             # Orchestrator: search → filter → apply
-│   │   └── llm.py                   # LLM factory (OpenAI/Anthropic/Google/Ollama)
-│   ├── models/
-│   │   └── schemas.py               # Pydantic models for all structured data
-│   └── utils/
-│       ├── cover_letter.py          # LLM-powered cover letter generation
-│       ├── interactive.py           # Arrow-key CLI menu (shown when no flags passed)
-│       ├── output.py                # JSON/CSV persistence + dedup + token tracking
-│       ├── pause.py                 # Ctrl+Z pause/resume gate
-│       └── pdf_to_text.py           # Resume PDF → plain text extraction (PyMuPDF)
-│
-├── tests/
-│   └── test_fuzzy_matching.py       # Unit tests for fuzzy matching & company skip list
-│
-└── output/                          # Created automatically on first run
-    ├── applications.json            # Rolling log of all applications
-    ├── applications.csv             # (if CSV mode enabled)
-    ├── progress.json                # Resume checkpoint (auto-cleared on completion)
-    ├── cover_letters/               # One .txt file per application
-    │   └── Acme_Corp_Senior_SWE_20260208_143022.txt
-    └── run_20260208_143022.json     # Per-run summary with stats + token costs
-```
+If the agent hits something it can't handle (CAPTCHA, ambiguous question, login wall), it pauses and asks you in the terminal.
 
 ## Prerequisites
 
@@ -232,6 +176,51 @@ The default `requirements.txt` installs OpenAI, Anthropic, and Google. Uncomment
 |-----|--------|
 | `Ctrl+Z` | Pause/resume the agent — the agent finishes its current action, then waits until you press `Ctrl+Z` again |
 | `Ctrl+C` | Quit immediately — browser tabs stay open so you can inspect the page; resume later with `--resume` |
+
+## Project Structure
+
+```
+BrowserAgent/
+├── main.py                          # Entry point — CLI with flags or interactive menu
+├── setup.sh                         # Interactive setup wizard (6-step)
+├── .env                             # Your API key (create from .env.example)
+├── requirements.txt
+│
+├── config/
+│   ├── profile.example.py           # Template — copy to profile.py and fill in
+│   ├── job_titles.example.py        # Template — copy to job_titles.py and customize
+│   ├── settings.example.py          # Template — copy to settings.py and adjust
+│   ├── cover_letter_prompt.py       # System prompt for cover letter generation
+│   └── pricing.py                   # API token pricing table for cost tracking
+│
+├── resume/
+│   └── resume.pdf                   # Your resume (PDF — text extracted automatically)
+│
+├── src/
+│   ├── agent/
+│   │   ├── actions.py               # 10 custom actions the agent can call
+│   │   ├── job_agent.py             # Orchestrator: search → filter → apply
+│   │   └── llm.py                   # LLM factory (OpenAI/Anthropic/Google/Ollama)
+│   ├── models/
+│   │   └── schemas.py               # Pydantic models for all structured data
+│   └── utils/
+│       ├── cover_letter.py          # LLM-powered cover letter generation
+│       ├── interactive.py           # Arrow-key CLI menu (shown when no flags passed)
+│       ├── output.py                # JSON/CSV persistence + dedup + token tracking
+│       ├── pause.py                 # Ctrl+Z pause/resume gate
+│       └── pdf_to_text.py           # Resume PDF → plain text extraction (PyMuPDF)
+│
+├── tests/
+│   └── test_fuzzy_matching.py       # Unit tests for fuzzy matching & company skip list
+│
+└── output/                          # Created automatically on first run
+    ├── applications.json            # Rolling log of all applications
+    ├── applications.csv             # (if CSV mode enabled)
+    ├── progress.json                # Resume checkpoint (auto-cleared on completion)
+    ├── cover_letters/               # One .txt file per application
+    │   └── Acme_Corp_Senior_SWE_20260208_143022.txt
+    └── run_20260208_143022.json     # Per-run summary with stats + token costs
+```
 
 ## Troubleshooting
 

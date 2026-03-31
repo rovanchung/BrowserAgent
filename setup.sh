@@ -188,6 +188,24 @@ if $WRITE_ENV; then
         API_KEY_LINE="${key_name}=${API_KEY}"
     fi
 
+    # Google Vertex AI
+    USE_VERTEX_AI=""
+    GCP_PROJECT=""
+    GCP_LOCATION=""
+    if [[ "$LLM_PROVIDER" == "google" ]]; then
+        echo ""
+        dim "Google supports two authentication modes:"
+        dim "  1) Gemini API — uses a GOOGLE_API_KEY (simpler)"
+        dim "  2) Vertex AI  — uses gcloud ADC + a GCP project (no API key)"
+        if ask_yn "Use Vertex AI instead of a Gemini API key?" "n"; then
+            USE_VERTEX_AI="true"
+            GCP_PROJECT=$(ask_input "GCP project ID")
+            GCP_LOCATION=$(ask_input "GCP location" "us-central1")
+            # Clear the API key line since Vertex uses ADC
+            API_KEY_LINE=""
+        fi
+    fi
+
     # Chrome profile
     echo ""
     dim "Chrome profile path — lets the agent reuse your logged-in browser"
@@ -210,6 +228,13 @@ if $WRITE_ENV; then
         if [[ "$LLM_PROVIDER" == "ollama" ]]; then
             echo "# ── Ollama ─────────────────────────────────────────────────"
             echo "OLLAMA_BASE_URL=http://localhost:11434"
+            echo ""
+        fi
+        if [[ -n "$USE_VERTEX_AI" ]]; then
+            echo "# ── Google Vertex AI ─────────────────────────────────────"
+            echo "USE_VERTEX_AI=true"
+            echo "GCP_PROJECT=${GCP_PROJECT}"
+            echo "GCP_LOCATION=${GCP_LOCATION}"
             echo ""
         fi
         if [[ -n "$CHROME_PATH" ]]; then
