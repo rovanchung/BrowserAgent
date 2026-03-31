@@ -46,4 +46,7 @@ Write the cover letter now.
             HumanMessage(content=user_prompt),
         ]
     )
-    return response.content.strip()
+    # ChatGoogle returns ChatInvokeCompletion with .completion;
+    # standard LangChain models return AIMessage with .content.
+    text = getattr(response, "content", None) or getattr(response, "completion", "")
+    return text.strip()

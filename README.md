@@ -29,28 +29,37 @@ The agent reads your **profile dictionary** in `config/profile.py` and uses it �
 
 ```
 BrowserAgent/
-├── main.py                          # Entry point — CLI with flags
+├── main.py                          # Entry point — CLI with flags or interactive menu
+├── setup.sh                         # Interactive setup wizard (6-step)
 ├── .env                             # Your API key (create from .env.example)
 ├── requirements.txt
 │
 ├── config/
 │   ├── profile.example.py           # Template — copy to profile.py and fill in
 │   ├── job_titles.example.py        # Template — copy to job_titles.py and customize
-│   └── settings.example.py          # Template — copy to settings.py and adjust
+│   ├── settings.example.py          # Template — copy to settings.py and adjust
+│   ├── cover_letter_prompt.py       # System prompt for cover letter generation
+│   └── pricing.py                   # API token pricing table for cost tracking
 │
 ├── resume/
-│   └── resume.pdf                  # Your resume (PDF — text extracted automatically)
+│   └── resume.pdf                   # Your resume (PDF — text extracted automatically)
 │
 ├── src/
 │   ├── agent/
-│   │   ├── actions.py               # 8 custom actions the agent can call
+│   │   ├── actions.py               # 10 custom actions the agent can call
 │   │   ├── job_agent.py             # Orchestrator: search → filter → apply
 │   │   └── llm.py                   # LLM factory (OpenAI/Anthropic/Google/Ollama)
 │   ├── models/
 │   │   └── schemas.py               # Pydantic models for all structured data
 │   └── utils/
 │       ├── cover_letter.py          # LLM-powered cover letter generation
-│       └── output.py                # JSON/CSV persistence + dedup
+│       ├── interactive.py           # Arrow-key CLI menu (shown when no flags passed)
+│       ├── output.py                # JSON/CSV persistence + dedup + token tracking
+│       ├── pause.py                 # Ctrl+Z pause/resume gate
+│       └── pdf_to_text.py           # Resume PDF → plain text extraction (PyMuPDF)
+│
+├── tests/
+│   └── test_fuzzy_matching.py       # Unit tests for fuzzy matching & company skip list
 │
 └── output/                          # Created automatically on first run
     ├── applications.json            # Rolling log of all applications
@@ -58,7 +67,7 @@ BrowserAgent/
     ├── progress.json                # Resume checkpoint (auto-cleared on completion)
     ├── cover_letters/               # One .txt file per application
     │   └── Acme_Corp_Senior_SWE_20260208_143022.txt
-    └── run_20260208_143022.json     # Per-run summary with stats
+    └── run_20260208_143022.json     # Per-run summary with stats + token costs
 ```
 
 ## Prerequisites
@@ -77,7 +86,7 @@ cd BrowserAgent
 bash setup.sh
 ```
 
-The script walks you through every step: creating a virtual environment, installing dependencies, configuring your LLM provider and API key, copying config templates, and importing your resume. Each prompt explains what the value is for and where it's stored.
+The script walks you through every step: creating a virtual environment, installing dependencies, installing the browser engine, configuring your LLM provider and API key, copying config templates, and importing your resume. Each prompt explains what the value is for and where it's stored.
 
 > **Prefer manual setup?** See the [Configuration Reference](#configuration-reference) below — the files you need are `.env` (from `.env.example`), `config/profile.py`, `config/job_titles.py`, and `config/settings.py` (each from their `.example.py` template), plus your resume at `resume/resume.pdf`.
 
@@ -94,6 +103,20 @@ python main.py --dry-run
 ```
 
 Run `python main.py --help` for the full list of flags.
+
+### CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--provider {openai,anthropic,google,ollama}` | Override LLM provider from `.env` |
+| `--model MODEL` | Override model name from `.env` |
+| `--headless` | Run browser without a visible window |
+| `--url URL` | Apply directly to a single job posting (skips search) |
+| `--dry-run` | Print task prompts without launching the browser |
+| `--initial-actions` | Navigate via URL params instead of LLM search steps (saves tokens) |
+| `--review` | Pause for human approval before submitting each application |
+| `--keep-alive` | Keep browser open after the agent finishes |
+| `--resume` | Resume from last interrupted run's progress |
 
 ## Output
 
@@ -113,7 +136,7 @@ After a run, check the `output/` directory:
     },
     "status": "applied",
     "skip_reason": null,
-    "cover_letter": "Having led the migration of Acme's payment...",
+    "screening_answers": {"Cover Letter": "Having led the migration..."},
     "applied_at": "2026-02-08T14:30:22.123456",
     "notes": ""
   },
@@ -125,7 +148,6 @@ After a run, check the `output/` directory:
     },
     "status": "skipped",
     "skip_reason": "keyword_blocked",
-    "cover_letter": "",
     "applied_at": "2026-02-08T14:32:05.654321",
     "notes": ""
   }
@@ -140,7 +162,7 @@ output/cover_letters/
 └── BigCo_Staff_Engineer_20260208_150230.txt
 ```
 
-**`run_<timestamp>.json`** — per-run summary with aggregate stats.
+**`run_<timestamp>.json`** — per-run summary with aggregate stats and token usage/cost.
 
 The agent also deduplicates across runs — if a job URL already appears in the log, it won't apply again.
 
@@ -156,27 +178,31 @@ Use `--resume` to pick up from where you left off. The file is automatically del
 
 ## Custom Actions
 
-The agent has 8 custom actions beyond standard browser interaction:
+The agent has 10 custom actions beyond standard browser interaction:
 
 | Action | What it does |
 |--------|-------------|
 | `read_resume` | Loads the resume text (auto-extracted from `resume/resume.pdf`) into the agent's context |
+| `get_resume_file_path` | Returns the absolute path to `resume.pdf` for file upload actions |
 | `get_profile` | Returns the full `PROFILE` dictionary as JSON |
 | `answer_screening_question` | Returns the profile and resume so the agent can answer any screening question |
-| `save_application` | Logs a successful application + cover letter to output |
+| `save_application` | Logs a successful application + screening answers to output |
 | `save_skipped_job` | Logs a skipped job with the reason (not qualified, blocked, etc.) |
-| `check_company` | Checks a company name against your block list |
+| `check_company` | Checks a company + job title against your skip list (supports fuzzy matching) |
 | `check_job_description` | Scans a JD for blocked keywords (e.g., "security clearance") |
 | `ask_human` | Pauses the agent and asks you for help in the terminal |
+| `make_cover_letter` | Generates a tailored cover letter using the LLM and saves it to `output/cover_letters/` |
 
 ## Configuration Reference
 
 | File | What to edit | Key fields |
 |------|-------------|------------|
-| `.env` | API keys, LLM provider | `OPENAI_API_KEY`, `LLM_PROVIDER`, `CHROME_PROFILE_PATH`, `GCP_PROJECT` |
-| `config/profile.py` | Your identity (copy from `profile.example.py`) | `PROFILE` dict: name, email, phone, skills, education, `companies_to_skip`, `keywords_to_avoid` |
-| `config/job_titles.py` | What to search for (copy from `job_titles.example.py`) | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `MAX_APPLICATIONS_PER_RUN` |
-| `config/settings.py` | Agent behavior (copy from `settings.example.py`) | `HEADLESS`, `MAX_AGENT_STEPS`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
+| `.env` | API keys, LLM provider | `OPENAI_API_KEY`, `LLM_PROVIDER`, `LLM_MODEL`, `CHROME_PROFILE_PATH`, `USE_VERTEX_AI`, `GCP_PROJECT` |
+| `config/profile.py` | Your identity (copy from `profile.example.py`) | `PROFILE` dict: name, email, phone, work authorization, education, skills, experience, salary, preferences, `companies_to_skip`, `keywords_to_avoid` |
+| `config/job_titles.py` | What to search for (copy from `job_titles.example.py`) | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `EXPERIENCE_LEVEL`, `MAX_APPLICATIONS_PER_RUN`, `MAX_LISTINGS_TO_REVIEW`, `MIN_SKILL_MATCH_RATIO`, `REQUIRED_KEYWORDS` |
+| `config/settings.py` | Agent behavior (copy from `settings.example.py`) | `HEADLESS`, `MAX_AGENT_STEPS`, `LLM_TEMPERATURE`, `ACTION_DELAY`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
+| `config/cover_letter_prompt.py` | Cover letter system prompt | Tone, length, structure guidelines for generated cover letters |
+| `config/pricing.py` | Token cost lookup | Per-model pricing for cost tracking in run summaries |
 | `resume/resume.pdf` | Your resume | PDF format — plain text is extracted automatically on startup |
 
 ## Supported LLM Providers
@@ -188,7 +214,7 @@ The agent has 8 custom actions beyond standard browser interaction:
 | Google | `gemini-2.5-flash`, `gemini-3-flash-preview` | Gemini API (default) or Vertex AI (`USE_VERTEX_AI=true` + `GCP_PROJECT` in `.env`) |
 | Ollama (local) | `llama3.1:70b`, `qwen2.5:7b` | `pip install langchain-ollama` |
 
-The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the others if needed.
+The default `requirements.txt` installs OpenAI, Anthropic, and Google. Uncomment Ollama if needed.
 
 ## Tips
 
@@ -198,6 +224,7 @@ The default `requirements.txt` installs OpenAI and Anthropic. Uncomment the othe
 - **Fill in your profile thoroughly** — the more data the agent has, the better it answers screening questions
 - **Use a Chrome profile** with saved logins to avoid authentication issues entirely
 - **Local models** (Ollama) work but have noticeably lower success rates on complex multi-page forms — use 70B+ parameter models for best results
+- **Company skip list** supports fuzzy matching — after each application, the company+title is auto-added to prevent re-applying across runs
 
 ## Keyboard Shortcuts
 
