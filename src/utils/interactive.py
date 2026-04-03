@@ -260,6 +260,7 @@ def interactive_menu() -> argparse.Namespace:
         review=False,
         keep_alive=False,
         resume=False,
+        cover_letter=None,
     )
 
     # ── Level 2: Mode-specific inputs ──────────────────────────────────
@@ -324,6 +325,24 @@ def interactive_menu() -> argparse.Namespace:
 
     # Dry Run has no runtime options
 
+    # ── Cover letter mode ─────────────────────────────────────────────
+
+    if not args.dry_run:
+        from config.settings import COVER_LETTER_MODE
+        cl_mode = _select_one("Cover letter mode?", [
+            ("AI-generated", "LLM writes a tailored letter per job (uses tokens)"),
+            ("Generic", "Use saved template from resume/cover_letter.txt"),
+            ("None", "Skip cover letters entirely"),
+        ])
+        cl_map = {0: "ai", 1: "generic", 2: "none"}
+        chosen = cl_map[cl_mode]
+        # Only set the override if it differs from the config default
+        if chosen != COVER_LETTER_MODE.lower():
+            args.cover_letter = chosen
+        else:
+            # Still store it so the flag summary can show it
+            args.cover_letter = chosen
+
     # ── Level 3: LLM override ─────────────────────────────────────────
 
     if not args.dry_run:
@@ -372,4 +391,6 @@ def _build_flag_summary(args: argparse.Namespace) -> str:
         parts.append("--keep-alive")
     if args.headless:
         parts.append("--headless")
+    if args.cover_letter:
+        parts.append(f"--cover-letter {args.cover_letter}")
     return " ".join(parts) if parts else "(default config)"

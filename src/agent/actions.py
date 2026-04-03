@@ -18,7 +18,10 @@ from pydantic import BaseModel, ConfigDict
 logger = logging.getLogger(__name__)
 
 from config.profile import PROFILE
-from config.settings import PROJECT_ROOT, RESUME_PATH, RESUME_PDF_PATH, SKIP_MATCH_TOLERANCE
+from config.settings import (
+    PROJECT_ROOT, RESUME_PATH, RESUME_PDF_PATH, SKIP_MATCH_TOLERANCE,
+    COVER_LETTER_MODE, COVER_LETTER_PATH,
+)
 
 PROFILE_PATH = PROJECT_ROOT / "config" / "profile.py"
 
@@ -464,7 +467,7 @@ def ask_human(message: str) -> ActionResult:
 
 
 @controller.action(
-    "Generate a tailored cover letter for a job. Provide the job_title, company, "
+    "Generate or retrieve a cover letter for a job. Provide the job_title, company, "
     "location, and the full job_description. Returns the cover letter text. "
     "IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste the "
     "returned text directly into the cover letter text field on the application page."
@@ -475,8 +478,37 @@ async def make_cover_letter(
     location: str,
     job_description: str,
 ) -> ActionResult:
-    """Use the dedicated cover-letter generator to produce a tailored letter."""
+    """Return a cover letter based on the configured mode (ai/generic/none)."""
     wait_if_paused()
+
+    mode = COVER_LETTER_MODE.lower()
+
+    if mode == "none":
+        return ActionResult(
+            extracted_content="Cover letters are disabled. Skip the cover letter field."
+        )
+
+    if mode == "generic":
+        if not COVER_LETTER_PATH.exists():
+            return ActionResult(
+                extracted_content=f"ERROR: Generic cover letter not found at {COVER_LETTER_PATH}. "
+                "Place your cover letter text in resume/cover_letter.txt.",
+                error=f"Cover letter file not found: {COVER_LETTER_PATH}",
+            )
+        letter = COVER_LETTER_PATH.read_text(encoding="utf-8").strip()
+
+        from src.utils.output import save_cover_letter_to_file
+        save_cover_letter_to_file(job_title, company, letter)
+
+        return ActionResult(
+            extracted_content=(
+                f"Generic cover letter loaded. "
+                f"PASTE the following text into the cover letter text field "
+                f"(do NOT upload as a file):\n\n{letter}"
+            )
+        )
+
+    # mode == "ai" (default)
     if _llm is None:
         return ActionResult(
             extracted_content="ERROR: LLM not available for cover letter generation.",
@@ -495,7 +527,6 @@ async def make_cover_letter(
     )
     letter = await generate_cover_letter(_llm, job, resume_text)
 
-    # Save cover letter to file immediately (don't rely on save_application)
     from src.utils.output import save_cover_letter_to_file
     save_cover_letter_to_file(job_title, company, letter)
 

@@ -24,6 +24,12 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4.1-mini")
 # For Ollama / local models
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
+# ── Google Vertex AI ────────────────────────────────────────────────
+# Set USE_VERTEX_AI=true to use Vertex AI instead of the Gemini API.
+USE_VERTEX_AI = os.getenv("USE_VERTEX_AI", "false").lower() == "true"
+GCP_PROJECT = os.getenv("GCP_PROJECT", "")
+GCP_LOCATION = os.getenv("GCP_LOCATION", "us-west1")
+
 # Temperature for LLM calls (lower = more deterministic)
 LLM_TEMPERATURE = 0.3
 
@@ -48,8 +54,17 @@ LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "300"))
 ACTION_DELAY = 1.0
 
 # ── Cover Letter ─────────────────────────────────────────────────────
-# Whether to generate a cover letter for each application.
-GENERATE_COVER_LETTER = True
+# Cover letter mode: "ai" = generate with LLM, "generic" = use saved
+# template from resume/cover_letter.txt, "none" = skip cover letters.
+COVER_LETTER_MODE = os.getenv("COVER_LETTER_MODE", "ai")
+
+# Path to the generic cover letter template (used when mode is "generic").
+COVER_LETTER_PATH = PROJECT_ROOT / "resume" / "cover_letter.txt"
+
+# ── Skip-list matching ─────────────────────────────────────────────
+# Max Levenshtein edit-distance allowed when matching job titles /
+# company names against the skip list.  0 = exact substring only.
+SKIP_MATCH_TOLERANCE = int(os.getenv("SKIP_MATCH_TOLERANCE", "0"))
 
 # ── Output ───────────────────────────────────────────────────────────
 # Format for the application tracking log.

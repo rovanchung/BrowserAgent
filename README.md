@@ -61,6 +61,7 @@ Run `python main.py --help` for the full list of flags.
 | `--review` | Pause for human approval before submitting each application |
 | `--keep-alive` | Keep browser open after the agent finishes |
 | `--resume` | Resume from last interrupted run's progress |
+| `--cover-letter {ai,generic,none}` | Cover letter mode: `ai` (LLM-generated), `generic` (saved template), `none` (skip) |
 
 ## Output
 
@@ -135,7 +136,7 @@ The agent has 10 custom actions beyond standard browser interaction:
 | `check_company` | Checks a company + job title against your skip list (supports fuzzy matching) |
 | `check_job_description` | Scans a JD for blocked keywords (e.g., "security clearance") |
 | `ask_human` | Pauses the agent and asks you for help in the terminal |
-| `make_cover_letter` | Generates a tailored cover letter using the LLM and saves it to `output/cover_letters/` |
+| `make_cover_letter` | Returns a cover letter (AI-generated, generic template, or none) based on `COVER_LETTER_MODE` |
 
 ## Configuration Reference
 
@@ -144,10 +145,11 @@ The agent has 10 custom actions beyond standard browser interaction:
 | `.env` | API keys, LLM provider | `OPENAI_API_KEY`, `LLM_PROVIDER`, `LLM_MODEL`, `CHROME_PROFILE_PATH`, `USE_VERTEX_AI`, `GCP_PROJECT` |
 | `config/profile.py` | Your identity (copy from `profile.example.py`) | `PROFILE` dict: name, email, phone, work authorization, education, skills, experience, salary, preferences, `companies_to_skip`, `keywords_to_avoid` |
 | `config/job_titles.py` | What to search for (copy from `job_titles.example.py`) | `SEARCHES`, `JOB_BOARDS`, `DATE_POSTED`, `EXPERIENCE_LEVEL`, `MAX_APPLICATIONS_PER_RUN`, `MAX_LISTINGS_TO_REVIEW`, `MIN_SKILL_MATCH_RATIO`, `REQUIRED_KEYWORDS` |
-| `config/settings.py` | Agent behavior (copy from `settings.example.py`) | `HEADLESS`, `MAX_AGENT_STEPS`, `LLM_TEMPERATURE`, `ACTION_DELAY`, `GENERATE_COVER_LETTER`, `OUTPUT_FORMAT` |
+| `config/settings.py` | Agent behavior (copy from `settings.example.py`) | `HEADLESS`, `MAX_AGENT_STEPS`, `LLM_TEMPERATURE`, `ACTION_DELAY`, `COVER_LETTER_MODE`, `COVER_LETTER_PATH`, `OUTPUT_FORMAT` |
 | `config/cover_letter_prompt.py` | Cover letter system prompt | Tone, length, structure guidelines for generated cover letters |
 | `config/pricing.py` | Token cost lookup | Per-model pricing for cost tracking in run summaries |
 | `resume/resume.pdf` | Your resume | PDF format — plain text is extracted automatically on startup |
+| `resume/cover_letter.txt` | Generic cover letter | Used when `COVER_LETTER_MODE` is `"generic"` — plain text pasted into forms |
 
 ## Supported LLM Providers
 
@@ -194,7 +196,8 @@ BrowserAgent/
 │   └── pricing.py                   # API token pricing table for cost tracking
 │
 ├── resume/
-│   └── resume.pdf                   # Your resume (PDF — text extracted automatically)
+│   ├── resume.pdf                   # Your resume (PDF — text extracted automatically)
+│   └── cover_letter.txt             # Generic cover letter (used when mode is "generic")
 │
 ├── src/
 │   ├── agent/

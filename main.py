@@ -78,6 +78,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Resume from the last interrupted run's progress",
     )
+    parser.add_argument(
+        "--cover-letter",
+        choices=["ai", "generic", "none"],
+        help="Cover letter mode: ai (LLM-generated), generic (resume/cover_letter.txt), none",
+    )
     return parser.parse_args()
 
 
@@ -91,6 +96,8 @@ def _apply_overrides(args: argparse.Namespace) -> None:
         settings.LLM_MODEL = args.model
     if args.headless:
         settings.HEADLESS = True
+    if getattr(args, "cover_letter", None):
+        settings.COVER_LETTER_MODE = args.cover_letter
 
 
 def _check_prerequisites() -> None:
