@@ -51,19 +51,19 @@ ask_choice() {
     # ask_choice "prompt" "opt1" "opt2" ...
     local prompt="$1"; shift
     local options=("$@")
-    echo -e "${YELLOW}?${NC}  ${prompt}"
+    echo -e "${YELLOW}?${NC}  ${prompt}" >&2
     for i in "${!options[@]}"; do
-        echo -e "   ${BOLD}$((i+1)))${NC} ${options[$i]}"
+        echo -e "   ${BOLD}$((i+1)))${NC} ${options[$i]}" >&2
     done
     while true; do
-        echo -en "   ${DIM}Enter number [1]:${NC} "
+        echo -en "${YELLOW}?${NC}  Enter number [1]: " >&2
         read -r choice
         choice="${choice:-1}"
         if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#options[@]} )); then
             echo "${options[$((choice-1))]}"
             return
         fi
-        echo "   Please enter a number between 1 and ${#options[@]}."
+        echo "   Please enter a number between 1 and ${#options[@]}." >&2
     done
 }
 
@@ -84,7 +84,7 @@ echo ""
 
 # ─── Step 1: Python venv ──────────────────────────────────────────────
 
-header "Step 1 / 6 — Python virtual environment"
+header "Step 1 / 7 — Python virtual environment"
 
 if [[ -d ".venv" ]]; then
     success "Virtual environment already exists at ${BOLD}.venv/${NC}"
@@ -112,24 +112,34 @@ fi
 
 # ─── Step 2: Browser engine ──────────────────────────────────────────
 
-header "Step 2 / 6 — Browser engine (Playwright Chromium)"
+header "Step 2 / 7 — Browser engine (Playwright Chromium)"
 
-if command -v uvx &>/dev/null; then
-    info "Installing browser via ${BOLD}uvx browser-use install${NC} ..."
-    uvx browser-use install
-elif command -v playwright &>/dev/null; then
-    info "Installing browser via ${BOLD}playwright install chromium${NC} ..."
-    playwright install chromium
-else
-    info "Installing ${BOLD}uv${NC} first, then browser ..."
-    pip install -q uv
-    uvx browser-use install
+INSTALL_BROWSER=true
+if ! $INSTALL_DEPS; then
+    if ! ask_yn "Reinstall browser engine anyway?" "n"; then
+        INSTALL_BROWSER=false
+        success "Skipping browser install."
+    fi
 fi
-success "Browser engine ready."
+
+if $INSTALL_BROWSER; then
+    if command -v uvx &>/dev/null; then
+        info "Installing browser via ${BOLD}uvx browser-use install${NC} ..."
+        uvx browser-use install
+    elif command -v playwright &>/dev/null; then
+        info "Installing browser via ${BOLD}playwright install chromium${NC} ..."
+        playwright install chromium
+    else
+        info "Installing ${BOLD}uv${NC} first, then browser ..."
+        pip install -q uv
+        uvx browser-use install
+    fi
+    success "Browser engine ready."
+fi
 
 # ─── Step 3: .env — API key & LLM config ─────────────────────────────
 
-header "Step 3 / 6 — LLM provider & API key"
+header "Step 3 / 7 — LLM provider & API key"
 
 ENV_FILE="$PROJECT_DIR/.env"
 WRITE_ENV=true
@@ -248,7 +258,7 @@ fi
 
 # ─── Step 4: Config files ────────────────────────────────────────────
 
-header "Step 4 / 6 — Config files"
+header "Step 4 / 7 — Config files"
 
 copy_config() {
     local src="$1" dest="$2" label="$3"
@@ -280,7 +290,7 @@ copy_config config/settings.example.py   config/settings.py   "config/settings.p
 
 # ─── Step 5: Resume ──────────────────────────────────────────────────
 
-header "Step 5 / 6 — Resume"
+header "Step 5 / 7 — Resume"
 
 dim "The agent reads your resume to answer screening questions and generate"
 dim "cover letters. Place a PDF at: ${BOLD}resume/resume.pdf${NC}"
@@ -314,9 +324,53 @@ else
     fi
 fi
 
-# ─── Step 6: Summary ─────────────────────────────────────────────────
+# ─── Step 6: Cover Letter ───────────────────────────────────────────
 
-header "Step 6 / 6 — All done!"
+header "Step 6 / 7 — Cover letter"
+
+dim "When a job application has a cover letter field, the agent can"
+dim "handle it in one of three ways."
+echo ""
+
+CL_MODE=$(ask_choice "Cover letter mode:" \
+    "ai       — write a unique letter per job using your LLM (extra tokens)" \
+    "generic  — paste the same letter every time (from resume/cover_letter.txt)" \
+    "none     — leave the field empty and move on")
+# Extract just the mode name (first word)
+CL_MODE="${CL_MODE%% *}"
+CL_MODE="${CL_MODE// /}"
+
+if [[ "$CL_MODE" == "generic" ]]; then
+    if [[ -f "resume/cover_letter.txt" ]]; then
+        success "Generic cover letter found at ${BOLD}resume/cover_letter.txt${NC}"
+    else
+        warn "No cover letter found at resume/cover_letter.txt"
+        dim "Create this file with your generic cover letter text before running."
+    fi
+fi
+
+# Update cover letter mode in .env
+if [[ -f "$ENV_FILE" ]]; then
+    # Remove any existing cover letter config
+    sed -i '/^# ── Cover Letter/d; /^COVER_LETTER_MODE=/d' "$ENV_FILE"
+    # Remove trailing blank lines left behind
+    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$ENV_FILE"
+fi
+
+if [[ "$CL_MODE" != "ai" ]]; then
+    if [[ -f "$ENV_FILE" ]]; then
+        echo "" >> "$ENV_FILE"
+        echo "# ── Cover Letter ───────────────────────────────────────────" >> "$ENV_FILE"
+        echo "COVER_LETTER_MODE=${CL_MODE}" >> "$ENV_FILE"
+    fi
+    success "Set cover letter mode to ${BOLD}${CL_MODE}${NC} in .env"
+else
+    success "Cover letter mode: ${BOLD}ai${NC} (default)"
+fi
+
+# ─── Step 7: Summary ─────────────────────────────────────────────────
+
+header "Step 7 / 7 — All done!"
 
 echo -e "${GREEN}${BOLD}Setup complete.${NC} Here's what to do next:\n"
 
@@ -326,6 +380,10 @@ echo -e "  ${BOLD}3.${NC} (Optional) Tweak settings  ${DIM}→ config/settings.p
 
 if [[ ! -f "resume/resume.pdf" ]]; then
     echo -e "  ${BOLD}4.${NC} ${YELLOW}Add your resume${NC}           ${DIM}→ resume/resume.pdf${NC}"
+fi
+
+if [[ "$CL_MODE" == "generic" && ! -f "resume/cover_letter.txt" ]]; then
+    echo -e "  ${BOLD}5.${NC} ${YELLOW}Add your cover letter${NC}     ${DIM}→ resume/cover_letter.txt${NC}"
 fi
 
 echo ""
