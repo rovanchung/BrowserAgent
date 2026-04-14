@@ -55,11 +55,12 @@ ACTION_DELAY = 1.0
 
 # ── Cover Letter ─────────────────────────────────────────────────────
 # Cover letter mode: "ai" = generate with LLM, "generic" = use saved
-# template from resume/cover_letter.txt, "none" = skip cover letters.
+# cover_letter.pdf from resume/, "none" = skip cover letters.
 COVER_LETTER_MODE = os.getenv("COVER_LETTER_MODE", "ai")
 
-# Path to the generic cover letter template (used when mode is "generic").
+# Path to the generic cover letter text (auto-generated from cover_letter.pdf on startup).
 COVER_LETTER_PATH = PROJECT_ROOT / "resume" / "cover_letter.txt"
+COVER_LETTER_PDF_PATH = PROJECT_ROOT / "resume" / "cover_letter.pdf"
 
 # ── Skip-list matching ─────────────────────────────────────────────
 # Max Levenshtein edit-distance allowed when matching job titles /

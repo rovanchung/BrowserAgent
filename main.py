@@ -81,7 +81,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--cover-letter",
         choices=["ai", "generic", "none"],
-        help="Cover letter mode: ai (LLM-generated), generic (resume/cover_letter.txt), none",
+        help="Cover letter mode: ai (LLM-generated), generic (resume/cover_letter.pdf), none",
     )
     return parser.parse_args()
 
@@ -101,8 +101,11 @@ def _apply_overrides(args: argparse.Namespace) -> None:
 
 
 def _check_prerequisites() -> None:
-    """Verify that required files exist and generate resume.txt from PDF."""
-    from config.settings import RESUME_PATH, RESUME_PDF_PATH
+    """Verify that required files exist and generate .txt from PDFs."""
+    from config.settings import (
+        RESUME_PATH, RESUME_PDF_PATH,
+        COVER_LETTER_PATH, COVER_LETTER_PDF_PATH,
+    )
     from src.utils.pdf_to_text import pdf_to_text
 
     if not RESUME_PDF_PATH.exists():
@@ -113,6 +116,11 @@ def _check_prerequisites() -> None:
     # Auto-generate the plain-text resume from the PDF
     print(f"  Generating {RESUME_PATH.name} from {RESUME_PDF_PATH.name}...")
     pdf_to_text(RESUME_PDF_PATH, RESUME_PATH)
+
+    # Auto-generate cover_letter.txt from cover_letter.pdf if the PDF exists
+    if COVER_LETTER_PDF_PATH.exists():
+        print(f"  Generating {COVER_LETTER_PATH.name} from {COVER_LETTER_PDF_PATH.name}...")
+        pdf_to_text(COVER_LETTER_PDF_PATH, COVER_LETTER_PATH)
 
 
 def _print_banner() -> None:

@@ -123,7 +123,7 @@ Use `--resume` to pick up from where you left off. The file is automatically del
 
 ## Custom Actions
 
-The agent has 10 custom actions beyond standard browser interaction:
+The agent has 11 custom actions beyond standard browser interaction:
 
 | Action | What it does |
 |--------|-------------|
@@ -137,6 +137,7 @@ The agent has 10 custom actions beyond standard browser interaction:
 | `check_job_description` | Scans a JD for blocked keywords (e.g., "security clearance") |
 | `ask_human` | Pauses the agent and asks you for help in the terminal |
 | `make_cover_letter` | Returns a cover letter (AI-generated, generic template, or none) based on `COVER_LETTER_MODE` |
+| `upload_cover_letter` | Uploads `resume/cover_letter.pdf` via CDP when the application only has a file upload (no text field) |
 
 ## Configuration Reference
 
@@ -149,7 +150,7 @@ The agent has 10 custom actions beyond standard browser interaction:
 | `config/cover_letter_prompt.py` | Cover letter system prompt | Tone, length, structure guidelines for generated cover letters |
 | `config/pricing.py` | Token cost lookup | Per-model pricing for cost tracking in run summaries |
 | `resume/resume.pdf` | Your resume | PDF format — plain text is extracted automatically on startup |
-| `resume/cover_letter.txt` | Generic cover letter | Used when `COVER_LETTER_MODE` is `"generic"` — plain text pasted into forms |
+| `resume/cover_letter.pdf` | Generic cover letter | Used when `COVER_LETTER_MODE` is `"generic"` — text extracted on startup; PDF uploaded directly when no text field is available |
 
 ## Supported LLM Providers
 
@@ -197,11 +198,11 @@ BrowserAgent/
 │
 ├── resume/
 │   ├── resume.pdf                   # Your resume (PDF — text extracted automatically)
-│   └── cover_letter.txt             # Generic cover letter (used when mode is "generic")
+│   └── cover_letter.pdf             # Generic cover letter PDF (text extracted on startup; uploaded directly when no text field)
 │
 ├── src/
 │   ├── agent/
-│   │   ├── actions.py               # 10 custom actions the agent can call
+│   │   ├── actions.py               # 11 custom actions the agent can call
 │   │   ├── job_agent.py             # Orchestrator: search → filter → apply
 │   │   └── llm.py                   # LLM factory (OpenAI/Anthropic/Google/Ollama)
 │   ├── models/

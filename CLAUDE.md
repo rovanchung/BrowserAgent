@@ -9,7 +9,7 @@ BrowserAgent is an autonomous browser automation agent that searches for jobs on
 - **Entry point:** `main.py` — interactive menu when run with no args, or CLI flags for scripted use. Registers signal handlers (SIGINT for Ctrl+C exit, SIGTSTP for Ctrl+Z pause/resume). Validates config files and auto-generates `resume/resume.txt` from PDF on startup.
 - **Interactive menu:** `src/utils/interactive.py` — multi-level arrow-key select menu shown when no flags are passed. Level 1: mode (Search & Apply / Apply to URL / Dry Run). Level 2: mode-specific inputs + options multi-select. Level 3: LLM override.
 - **Orchestration:** `src/agent/job_agent.py` — `run_job_search()` loops through searches, creates an Agent + Browser per search, runs the LLM-driven browser agent. `run_single_apply()` handles single-URL mode. Builds LinkedIn search URLs with query params (keywords, location, date, experience level, remote, pagination offset).
-- **Actions:** `src/agent/actions.py` — 10 custom browser-use actions (read_resume, get_resume_file_path, get_profile, answer_screening_question, save_application, save_skipped_job, check_company, check_job_description, ask_human, make_cover_letter). Includes fuzzy matching helpers (`_levenshtein`, `_fuzzy_contains`) for company skip list.
+- **Actions:** `src/agent/actions.py` — 11 custom browser-use actions (read_resume, get_resume_file_path, get_profile, answer_screening_question, save_application, save_skipped_job, check_company, check_job_description, ask_human, make_cover_letter, upload_cover_letter). Includes fuzzy matching helpers (`_levenshtein`, `_fuzzy_contains`) for company skip list.
 - **LLM factory:** `src/agent/llm.py` — `build_llm()` returns the right chat model (OpenAI, Anthropic, Google/Vertex, Ollama) based on config
 - **Output:** `src/utils/output.py` — JSON/CSV persistence, run summaries, progress tracking for `--resume`, token cost accumulation via `config/pricing.py`
 - **Cover letters:** `src/utils/cover_letter.py` — async LLM-based generation using system prompt from `config/cover_letter_prompt.py`
@@ -30,7 +30,7 @@ BrowserAgent is an autonomous browser automation agent that searches for jobs on
 - **Ctrl+C handling:** SIGINT triggers `os._exit(130)` to bypass Playwright cleanup and keep browser tabs open.
 - **Ctrl+Z handling:** SIGTSTP toggles pause state via `src/utils/pause.py`. Agent finishes current action then blocks.
 - **Google provider:** Uses `ChatGoogle` from `browser_use.llm.google`. Supports both Gemini API (`GOOGLE_API_KEY`) and Vertex AI (`USE_VERTEX_AI=true` + `gcloud auth application-default login`).
-- **Cover letter generation:** Uses same LLM as browser agent. System prompt in `config/cover_letter_prompt.py` emphasizes natural tone (no buzzwords). Text is pasted into forms, not uploaded as file.
+- **Cover letter generation:** Uses same LLM as browser agent. System prompt in `config/cover_letter_prompt.py` emphasizes natural tone (no buzzwords). Text is pasted into form text fields; if only a file upload is available, `upload_cover_letter` uploads `resume/cover_letter.pdf` directly via CDP. `cover_letter.txt` is auto-generated from `cover_letter.pdf` on startup.
 - **Token cost tracking:** `config/pricing.py` has per-model pricing. `output.py` accumulates costs across agent steps. Run summaries include total cost.
 - **One browser per search:** Each search query gets a fresh Browser + Agent instance to avoid state leakage.
 
@@ -53,6 +53,7 @@ python main.py --dry-run
 - Config files are copied from `.example.py` templates
 - API keys go in `.env` (not committed)
 - `resume/resume.pdf` is required; `resume/resume.txt` is auto-generated from PDF on startup
+- `resume/cover_letter.pdf` is optional; if present, `resume/cover_letter.txt` is auto-generated from it on startup
 
 ## When Updating
 

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 from config.profile import PROFILE
 from config.settings import (
     PROJECT_ROOT, RESUME_PATH, RESUME_PDF_PATH, SKIP_MATCH_TOLERANCE,
-    COVER_LETTER_MODE, COVER_LETTER_PATH,
+    COVER_LETTER_MODE, COVER_LETTER_PATH, COVER_LETTER_PDF_PATH,
 )
 
 PROFILE_PATH = PROJECT_ROOT / "config" / "profile.py"
@@ -269,6 +269,95 @@ async def upload_resume(browser_session) -> ActionResult:
         )
 
 
+@controller.action(
+    "Upload the candidate's cover letter PDF to a file input on the page. "
+    "Use this when the application only has a file upload for the cover letter "
+    "(no text field). This action finds the cover letter file input and uploads "
+    "resume/cover_letter.pdf via CDP. "
+    "Do NOT click the upload button — that opens an OS dialog the agent cannot control.",
+    param_model=_NoParams,
+)
+async def upload_cover_letter(browser_session) -> ActionResult:
+    """Find a file input for the cover letter and upload the PDF via CDP."""
+    wait_if_paused()
+    path = COVER_LETTER_PDF_PATH
+    if not path.exists():
+        return ActionResult(
+            extracted_content=f"ERROR: Cover letter PDF not found at {path}. "
+            "Place your cover_letter.pdf in the resume/ folder.",
+            error=f"Cover letter PDF not found: {path}",
+        )
+
+    try:
+        cdp_session = await browser_session.get_or_create_cdp_session()
+        cdp = cdp_session.cdp_client
+        sid = cdp_session.session_id
+
+        # Find all file inputs on the page
+        result = await cdp.send.Runtime.evaluate(
+            params={
+                "expression": """
+                    (() => {
+                        const inputs = document.querySelectorAll('input[type="file"]');
+                        return inputs.length;
+                    })()
+                """,
+            },
+            session_id=sid,
+        )
+        file_input_count = result.get("result", {}).get("value", 0)
+        if not file_input_count:
+            return ActionResult(
+                extracted_content="ERROR: No file input element found on this page.",
+                error="No <input type='file'> found on page.",
+            )
+
+        # Use the last file input (resume is typically first, cover letter second)
+        doc_result = await cdp.send.DOM.getDocument(
+            params={"depth": 0}, session_id=sid
+        )
+        root_node_id = doc_result["root"]["nodeId"]
+        query_result = await cdp.send.DOM.querySelectorAll(
+            params={
+                "nodeId": root_node_id,
+                "selector": 'input[type="file"]',
+            },
+            session_id=sid,
+        )
+        node_ids = query_result.get("nodeIds", [])
+        if not node_ids:
+            return ActionResult(
+                extracted_content="ERROR: Could not locate file input nodes in DOM.",
+                error="DOM.querySelectorAll returned empty.",
+            )
+
+        # Pick the last file input (cover letter is usually after resume)
+        target_node_id = node_ids[-1] if len(node_ids) > 1 else node_ids[0]
+
+        desc = await cdp.send.DOM.describeNode(
+            params={"nodeId": target_node_id}, session_id=sid
+        )
+        backend_node_id = desc["node"]["backendNodeId"]
+
+        await cdp.send.DOM.setFileInputFiles(
+            params={
+                "files": [str(path.resolve())],
+                "backendNodeId": backend_node_id,
+            },
+            session_id=sid,
+        )
+        msg = f"Successfully uploaded cover letter ({path.name}) to file input via CDP."
+        logger.info(f"📁 {msg}")
+        return ActionResult(extracted_content=msg)
+
+    except Exception as e:
+        logger.error(f"upload_cover_letter failed: {e}")
+        return ActionResult(
+            extracted_content=f"ERROR: Failed to upload cover letter: {e}",
+            error=str(e),
+        )
+
+
 @controller.action("Get the candidate's personal profile for filling application forms", param_model=_NoParams)
 def get_profile() -> ActionResult:
     """Return the full candidate profile as JSON."""
@@ -468,9 +557,10 @@ def ask_human(message: str) -> ActionResult:
 
 @controller.action(
     "Generate or retrieve a cover letter for a job. Provide the job_title, company, "
-    "location, and the full job_description. Returns the cover letter text. "
-    "IMPORTANT: Do NOT upload the cover letter as a file. Instead, paste the "
-    "returned text directly into the cover letter text field on the application page."
+    "location, and the full job_description. Returns the cover letter text to paste "
+    "into a text field. If the application has no text field and only a file upload "
+    "for the cover letter, use the `upload_cover_letter` action instead to upload "
+    "the cover letter PDF directly."
 )
 async def make_cover_letter(
     job_title: str,
@@ -503,8 +593,10 @@ async def make_cover_letter(
         return ActionResult(
             extracted_content=(
                 f"Generic cover letter loaded. "
-                f"PASTE the following text into the cover letter text field "
-                f"(do NOT upload as a file):\n\n{letter}"
+                f"PASTE the following text into the cover letter text field. "
+                f"If there is NO text field and only a file upload for the cover letter, "
+                f"use the `upload_cover_letter` action instead to upload the PDF directly."
+                f"\n\n{letter}"
             )
         )
 

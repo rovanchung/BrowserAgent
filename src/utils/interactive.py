@@ -331,7 +331,7 @@ def interactive_menu() -> argparse.Namespace:
         from config.settings import COVER_LETTER_MODE
         cl_mode = _select_one("Cover letter mode?", [
             ("AI-generated", "LLM writes a tailored letter per job (uses tokens)"),
-            ("Generic", "Use saved template from resume/cover_letter.txt"),
+            ("Generic", "Use saved cover_letter.pdf from resume/ folder"),
             ("None", "Skip cover letters entirely"),
         ])
         cl_map = {0: "ai", 1: "generic", 2: "none"}
